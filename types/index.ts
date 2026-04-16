@@ -18,10 +18,10 @@ export interface Movimiento {
   user_id: string
   tipo: TipoMovimiento
   descripcion: string | null
-  precio_unitario: number
+  precio_unitario: number | null 
   cantidad: number
   monto: number
-  es_promo: boolean
+  es_promo: boolean | null
   fecha: string
   created_at: string
 }
