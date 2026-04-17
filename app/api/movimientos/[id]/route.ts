@@ -12,12 +12,12 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
 
   const body = await req.json()
-  const { descripcion, precio_unitario, cantidad, monto, es_promo } = body
+  const { descripcion, precio_unitario, cantidad, monto, es_promo, categoria } = body
 
   const admin = createAdminClient()
   const { data, error } = await admin
     .from("movimientos")
-    .update({ descripcion, precio_unitario, cantidad, monto, es_promo })
+    .update({ descripcion, precio_unitario, cantidad, monto, es_promo, categoria: categoria || null })
     .eq("id", params.id)
     .eq("user_id", user.id)   // seguridad: solo el dueño puede editar
     .select()

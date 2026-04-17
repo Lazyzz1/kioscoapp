@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { createClient } from "@/lib/supabase"
 import { Perfil, Movimiento, diasRestantesTrial } from "@/types"
 
-const LINK_DONACION = "https://link.mercadopago.com.ar/turnosbots"
+const LINK_DONACION = "https://link.mercadopago.com.ar/tu-link-aqui"
 
 interface Props {
   perfil: Perfil
@@ -33,6 +33,9 @@ const fmtFecha = (iso: string) => {
   return d.toLocaleDateString("es-AR", { day: "numeric", month: "short" })
 }
 
+const CATEGORIAS_INGRESO = ["Bebidas", "Snacks", "Cigarrillos", "Lácteos", "Golosinas", "Panadería", "Limpieza", "Otros"]
+const CATEGORIAS_GASTO   = ["Proveedor", "Servicios", "Alquiler", "Personal", "Impuestos", "Otros"]
+
 export default function DashboardClient({ perfil, movimientosIniciales }: Props) {
   const router = useRouter()
   const [movimientos, setMovimientos] = useState<Movimiento[]>(movimientosIniciales)
@@ -45,6 +48,8 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
   const [cantidad, setCantidad] = useState(1)
   const [esPromo, setEsPromo] = useState(false)
   const [totalLibre, setTotalLibre] = useState("")
+  const [categoria, setCategoria] = useState("")
+  const [categoriaCustom, setCategoriaCustom] = useState("")
   const [saving, setSaving] = useState(false)
 
   // ─── Estado modal EDITAR ──────────────────────────────────
@@ -55,6 +60,8 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
   const [editCantidad, setEditCantidad] = useState(1)
   const [editEsPromo, setEditEsPromo] = useState(false)
   const [editTotalLibre, setEditTotalLibre] = useState("")
+  const [editCategoria, setEditCategoria] = useState("")
+  const [editCategoriaCustom, setEditCategoriaCustom] = useState("")
   const [savingEdit, setSavingEdit] = useState(false)
 
   // ─── Estado modal CONFIRMAR ELIMINAR ─────────────────────
@@ -138,6 +145,156 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
     return lista
   }, [perfil, resumen, movimientos])
 
+  // ─── Inteligencia ────────────────────────────────────────
+  type InsightTipo = "positivo" | "negativo" | "neutro" | "fuego"
+  interface Insight { emoji: string; texto: string; tipo: InsightTipo }
+
+  const insights = useMemo(() => {
+    const lista: Insight[] = []
+    if (resumen.count === 0) return lista
+
+    // 1. Producto estrella
+    if (top5.length > 0) {
+      const estrella = top5[0]
+      lista.push({
+        emoji: "🔥",
+        texto: `"${estrella.nombre}" es tu producto más vendido este mes (${estrella.cantidad} unidades)`,
+        tipo: "fuego",
+      })
+    }
+
+    // 2. Comparación neto con mes anterior
+    if (resumenAnterior.count > 0) {
+      const v = variacion(resumen.neto, resumenAnterior.neto)
+      if (v.tipo === "sube") {
+        lista.push({
+          emoji: "📈",
+          texto: `Este mes ganás ${v.pct}% más que ${meses[resumenAnterior.mes]}. ¡Vas bien!`,
+          tipo: "positivo",
+        })
+      } else if (v.tipo === "baja") {
+        lista.push({
+          emoji: "📉",
+          texto: `Tu ganancia bajó ${v.pct}% respecto a ${meses[resumenAnterior.mes]}. Revisá tus gastos.`,
+          tipo: "negativo",
+        })
+      } else {
+        lista.push({
+          emoji: "➡️",
+          texto: `Tu ganancia está igual que el mes pasado.`,
+          tipo: "neutro",
+        })
+      }
+    }
+
+    // 3. Gastos subieron
+    if (resumenAnterior.count > 0 && resumen.gastos > 0) {
+      const vG = variacion(resumen.gastos, resumenAnterior.gastos)
+      if (vG.tipo === "sube" && vG.pct >= 20) {
+        lista.push({
+          emoji: "⚠️",
+          texto: `Tus gastos subieron ${vG.pct}% respecto al mes pasado.`,
+          tipo: "negativo",
+        })
+      }
+    }
+
+    // 4. Margen del mes (ingresos vs gastos)
+    if (resumen.ingresos > 0) {
+      const margen = Math.round(((resumen.ingresos - resumen.gastos) / resumen.ingresos) * 100)
+      if (margen >= 60) {
+        lista.push({
+          emoji: "💰",
+          texto: `Excelente margen este mes: te quedás con el ${margen}% de lo que vendés.`,
+          tipo: "positivo",
+        })
+      } else if (margen < 20 && margen >= 0) {
+        lista.push({
+          emoji: "🤏",
+          texto: `Tu margen es bajo (${margen}%). Los gastos se están comiendo las ganancias.`,
+          tipo: "negativo",
+        })
+      }
+    }
+
+    // 5. Racha de ventas — cuántos días seguidos registró movimientos
+    const diasConMovs = new Set(
+      movimientos
+        .filter(m => {
+          const d = new Date(m.fecha)
+          return d.getMonth() === hoy.getMonth() && d.getFullYear() === hoy.getFullYear()
+        })
+        .map(m => new Date(m.fecha).toDateString())
+    )
+    if (diasConMovs.size >= 7) {
+      lista.push({
+        emoji: "🗓️",
+        texto: `Registraste movimientos en ${diasConMovs.size} días este mes. Muy buena constancia.`,
+        tipo: "positivo",
+      })
+    }
+
+    // 6. Producto del mes pasado que no apareció este mes
+    if (resumenAnterior.count > 0 && top5.length > 0) {
+      const nombresEsteMes = new Set(
+        movimientos
+          .filter(m => {
+            const d = new Date(m.fecha)
+            return m.tipo === "ingreso" && d.getMonth() === hoy.getMonth() && d.getFullYear() === hoy.getFullYear()
+          })
+          .map(m => (m.descripcion ?? "").toLowerCase().trim())
+      )
+      const topAnterior = movimientos
+        .filter(m => {
+          const d = new Date(m.fecha)
+          return (
+            m.tipo === "ingreso" &&
+            d.getMonth() === resumenAnterior.mes &&
+            d.getFullYear() === (resumenAnterior.mes === 11 ? hoy.getFullYear() - 1 : hoy.getFullYear())
+          )
+        })
+        .reduce<Record<string, { nombre: string; cantidad: number }>>((acc, m) => {
+          const key = (m.descripcion ?? "").toLowerCase().trim()
+          if (!acc[key]) acc[key] = { nombre: m.descripcion ?? "", cantidad: 0 }
+          acc[key].cantidad += m.cantidad
+          return acc
+        }, {})
+
+      const estrellaPasada = Object.values(topAnterior).sort((a, b) => b.cantidad - a.cantidad)[0]
+      if (estrellaPasada && !nombresEsteMes.has(estrellaPasada.nombre.toLowerCase().trim())) {
+        lista.push({
+          emoji: "🤔",
+          texto: `"${estrellaPasada.nombre}" fue tu top el mes pasado pero no lo vendiste este mes.`,
+          tipo: "neutro",
+        })
+      }
+    }
+
+    return lista.slice(0, 4) // máximo 4 insights para no saturar
+  }, [resumen, resumenAnterior, top5, movimientos])
+
+  // ─── Breakdown por categoría (mes actual) ────────────────
+  const porCategoria = useMemo(() => {
+    const mapa: Record<string, { monto: number; tipo: "ingreso" | "gasto" }[]> = {}
+    movimientos
+      .filter(m => {
+        const d = new Date(m.fecha)
+        return d.getMonth() === hoy.getMonth() && d.getFullYear() === hoy.getFullYear() && m.categoria
+      })
+      .forEach(m => {
+        const cat = m.categoria!
+        if (!mapa[cat]) mapa[cat] = []
+        mapa[cat].push({ monto: m.monto, tipo: m.tipo })
+      })
+    return Object.entries(mapa)
+      .map(([cat, items]) => ({
+        cat,
+        ingresos: items.filter(i => i.tipo === "ingreso").reduce((a, i) => a + i.monto, 0),
+        gastos:   items.filter(i => i.tipo === "gasto").reduce((a, i) => a + i.monto, 0),
+      }))
+      .sort((a, b) => (b.ingresos + b.gastos) - (a.ingresos + a.gastos))
+  }, [movimientos])
+
   // ─── Helpers ─────────────────────────────────────────────
   const calcularTotal = () => {
     if (esPromo && totalLibre) return parseFloat(totalLibre) || 0
@@ -157,6 +314,8 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
     setCantidad(1)
     setEsPromo(false)
     setTotalLibre("")
+    setCategoria("")
+    setCategoriaCustom("")
     setModalOpen(true)
   }
 
@@ -174,6 +333,7 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
         cantidad,
         monto: total,
         es_promo: esPromo,
+        categoria: categoria === "Otra" ? categoriaCustom.trim() || null : categoria || null,
       }),
     })
     if (res.ok) {
@@ -191,9 +351,20 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
     setEditPrecioUnitario(mov.precio_unitario?.toString() ?? "")
     setEditCantidad(mov.cantidad)
     setEditEsPromo(mov.es_promo ?? false)
-    // Si es promo y el monto no coincide con precio × cantidad, lo cargamos como total libre
     const montoCalculado = (mov.precio_unitario ?? 0) * mov.cantidad
     setEditTotalLibre(mov.es_promo && mov.monto !== montoCalculado ? mov.monto.toString() : "")
+    // Cargar categoría: si es una de la lista fija la seleccionamos, si no va a "Otra" + custom
+    const cats = mov.tipo === "ingreso" ? CATEGORIAS_INGRESO : CATEGORIAS_GASTO
+    if (!mov.categoria) {
+      setEditCategoria("")
+      setEditCategoriaCustom("")
+    } else if (cats.includes(mov.categoria)) {
+      setEditCategoria(mov.categoria)
+      setEditCategoriaCustom("")
+    } else {
+      setEditCategoria("Otra")
+      setEditCategoriaCustom(mov.categoria)
+    }
     setEditModalOpen(true)
   }
 
@@ -211,6 +382,7 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
         cantidad: editCantidad,
         monto: total,
         es_promo: editEsPromo,
+        categoria: editCategoria === "Otra" ? editCategoriaCustom.trim() || null : editCategoria || null,
       }),
     })
     if (res.ok) {
@@ -313,6 +485,36 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
             </p>
           </div>
         </Card>
+
+        {/* Inteligencia */}
+        {insights.length > 0 && (
+          <Card className="p-4 bg-card border-border">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-base">🧠</span>
+              <h2 className="text-base font-semibold text-foreground">Inteligencia</h2>
+            </div>
+            <div className="space-y-2">
+              {insights.map((ins, i) => {
+                const bgClass =
+                  ins.tipo === "positivo" ? "bg-success/10 border-success/20" :
+                  ins.tipo === "negativo" ? "bg-destructive/10 border-destructive/20" :
+                  ins.tipo === "fuego"    ? "bg-orange-500/10 border-orange-500/20" :
+                  "bg-secondary border-border"
+                const textClass =
+                  ins.tipo === "positivo" ? "text-success" :
+                  ins.tipo === "negativo" ? "text-destructive" :
+                  ins.tipo === "fuego"    ? "text-orange-400" :
+                  "text-muted-foreground"
+                return (
+                  <div key={i} className={`flex items-start gap-3 p-3 rounded-xl border ${bgClass}`}>
+                    <span className="text-base leading-none mt-0.5">{ins.emoji}</span>
+                    <p className={`text-sm leading-snug ${textClass}`}>{ins.texto}</p>
+                  </div>
+                )
+              })}
+            </div>
+          </Card>
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-2 gap-3">
@@ -427,6 +629,7 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
                         {mov.cantidad > 1 && `${mov.cantidad}x · `}
                         {fmtFecha(mov.fecha)}
                         {mov.es_promo ? " · promo" : ""}
+                        {mov.categoria ? ` · ${mov.categoria}` : ""}
                       </p>
                     </div>
                   </div>
@@ -484,6 +687,46 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
             </div>
           )}
         </Card>
+
+        {/* Categorías */}
+        {porCategoria.length > 0 && (() => {
+          const maxCat = Math.max(...porCategoria.map(c => c.ingresos + c.gastos))
+          return (
+            <Card className="p-4 bg-card border-border">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-base">🏷️</span>
+                <h2 className="text-base font-semibold text-foreground">Por categoría</h2>
+              </div>
+              <div className="space-y-4">
+                {porCategoria.map(c => {
+                  const total = c.ingresos + c.gastos
+                  const pct = Math.round((total / maxCat) * 100)
+                  return (
+                    <div key={c.cat} className="space-y-1.5">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-foreground font-medium">{c.cat}</span>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          {c.ingresos > 0 && (
+                            <span className="text-success">+{formatMoney(c.ingresos)}</span>
+                          )}
+                          {c.gastos > 0 && (
+                            <span className="text-destructive">-{formatMoney(c.gastos)}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="h-2 rounded-full bg-secondary overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-primary transition-all"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </Card>
+          )
+        })()}
 
         {/* Donación */}
         <Card className="p-4 bg-card border-border">
@@ -577,6 +820,35 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
                 )}
               </div>
             )}
+            {/* Categoría */}
+            <div className="space-y-2">
+              <Label className="text-sm text-muted-foreground">Categoría <span className="text-xs">(opcional)</span></Label>
+              <div className="flex flex-wrap gap-2">
+                {(tipoMovimiento === "ingreso" ? CATEGORIAS_INGRESO : CATEGORIAS_GASTO).map(cat => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => { setCategoria(cat); if (cat !== "Otra") setCategoriaCustom("") }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
+                      categoria === cat
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-secondary text-muted-foreground border-border hover:border-primary/50"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+              {categoria === "Otra" && (
+                <Input
+                  placeholder="Escribí la categoría..."
+                  value={categoriaCustom}
+                  onChange={e => setCategoriaCustom(e.target.value)}
+                  className="h-10 bg-input border-border text-sm mt-2"
+                  maxLength={40}
+                />
+              )}
+            </div>
             <div className={`p-4 rounded-xl ${tipoMovimiento === "ingreso" ? "bg-success/10" : "bg-destructive/10"}`}>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Total</span>
@@ -652,6 +924,35 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
                 )}
               </div>
             )}
+            {/* Categoría */}
+            <div className="space-y-2">
+              <Label className="text-sm text-muted-foreground">Categoría <span className="text-xs">(opcional)</span></Label>
+              <div className="flex flex-wrap gap-2">
+                {(editando?.tipo === "ingreso" ? CATEGORIAS_INGRESO : CATEGORIAS_GASTO).map(cat => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => { setEditCategoria(cat); if (cat !== "Otra") setEditCategoriaCustom("") }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
+                      editCategoria === cat
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-secondary text-muted-foreground border-border hover:border-primary/50"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+              {editCategoria === "Otra" && (
+                <Input
+                  placeholder="Escribí la categoría..."
+                  value={editCategoriaCustom}
+                  onChange={e => setEditCategoriaCustom(e.target.value)}
+                  className="h-10 bg-input border-border text-sm mt-2"
+                  maxLength={40}
+                />
+              )}
+            </div>
             <div className={`p-4 rounded-xl ${editando?.tipo === "ingreso" ? "bg-success/10" : "bg-destructive/10"}`}>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Total</span>
