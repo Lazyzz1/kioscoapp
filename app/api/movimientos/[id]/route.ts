@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerComponentClient, createAdminClient } from "@/lib/supabase.server"
-import { cookies } from "next/headers"
+
 
 // ─── PATCH: editar un movimiento ─────────────────────────────
 export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createServerComponentClient(cookies())
+  const supabase = createServerComponentClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
 
@@ -32,7 +32,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const supabase = createServerComponentClient(cookies())
+  const supabase = createServerComponentClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
 

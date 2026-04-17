@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import {
   LogOut, Plus, Minus, AlertTriangle, Clock,
   TrendingUp, TrendingDown, X, Heart, Send, Package,
-  Pencil, Trash2,
+  Pencil, Trash2, ArrowUp, ArrowDown, Equal,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { createClient } from "@/lib/supabase"
 import { Perfil, Movimiento, diasRestantesTrial } from "@/types"
 
-const LINK_DONACION = "https://link.mercadopago.com.ar/tu-link-aqui"
+const LINK_DONACION = "https://link.mercadopago.com.ar/turnosbots"
 
 interface Props {
   perfil: Perfil
@@ -80,6 +80,27 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
     const gastos = delMes.filter(m => m.tipo === "gasto").reduce((a, m) => a + m.monto, 0)
     return { ingresos, gastos, neto: ingresos - gastos, count: delMes.length }
   }, [movimientos])
+
+  // ─── Resumen mes anterior ────────────────────────────────
+  const resumenAnterior = useMemo(() => {
+    const mesAnterior = hoy.getMonth() === 0 ? 11 : hoy.getMonth() - 1
+    const anioAnterior = hoy.getMonth() === 0 ? hoy.getFullYear() - 1 : hoy.getFullYear()
+    const delMes = movimientos.filter(m => {
+      const d = new Date(m.fecha)
+      return d.getMonth() === mesAnterior && d.getFullYear() === anioAnterior
+    })
+    const ingresos = delMes.filter(m => m.tipo === "ingreso").reduce((a, m) => a + m.monto, 0)
+    const gastos = delMes.filter(m => m.tipo === "gasto").reduce((a, m) => a + m.monto, 0)
+    return { ingresos, gastos, neto: ingresos - gastos, count: delMes.length, mes: mesAnterior }
+  }, [movimientos])
+
+  // ─── Helper variación % ──────────────────────────────────
+  const variacion = (actual: number, anterior: number) => {
+    if (anterior === 0 && actual === 0) return { pct: 0, tipo: "igual" as const }
+    if (anterior === 0) return { pct: 100, tipo: "sube" as const }
+    const pct = Math.round(((actual - anterior) / Math.abs(anterior)) * 100)
+    return { pct: Math.abs(pct), tipo: pct > 0 ? "sube" as const : pct < 0 ? "baja" as const : "igual" as const }
+  }
 
   // ─── Top 5 productos ─────────────────────────────────────
   const top5 = useMemo(() => {
@@ -314,6 +335,66 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
             <p className="text-xl font-bold text-destructive">{formatMoney(resumen.gastos)}</p>
           </Card>
         </div>
+
+        {/* Comparación con mes anterior */}
+        {resumenAnterior.count > 0 && (() => {
+          const vIngresos = variacion(resumen.ingresos, resumenAnterior.ingresos)
+          const vGastos   = variacion(resumen.gastos,   resumenAnterior.gastos)
+          const vNeto     = variacion(resumen.neto,     resumenAnterior.neto)
+          const BadgeVar = ({ v, invertido = false }: { v: ReturnType<typeof variacion>; invertido?: boolean }) => {
+            const esBueno = invertido ? v.tipo === "baja" : v.tipo === "sube"
+            const colorClass =
+              v.tipo === "igual" ? "text-muted-foreground" :
+              esBueno ? "text-success" : "text-destructive"
+            const bgClass =
+              v.tipo === "igual" ? "bg-secondary" :
+              esBueno ? "bg-success/10" : "bg-destructive/10"
+            const Icono = v.tipo === "igual" ? Equal : v.tipo === "sube" ? ArrowUp : ArrowDown
+            return (
+              <span className={`inline-flex items-center gap-0.5 text-xs font-medium px-1.5 py-0.5 rounded-md ${colorClass} ${bgClass}`}>
+                <Icono className="h-3 w-3" />
+                {v.pct}%
+              </span>
+            )
+          }
+          return (
+            <Card className="p-4 bg-card border-border">
+              <p className="text-xs text-muted-foreground mb-3">
+                vs {meses[resumenAnterior.mes]}
+              </p>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Ingresos</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-foreground">{formatMoney(resumenAnterior.ingresos)}</span>
+                    <span className="text-muted-foreground text-xs">→</span>
+                    <span className="text-sm font-medium text-foreground">{formatMoney(resumen.ingresos)}</span>
+                    <BadgeVar v={vIngresos} />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Gastos</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-foreground">{formatMoney(resumenAnterior.gastos)}</span>
+                    <span className="text-muted-foreground text-xs">→</span>
+                    <span className="text-sm font-medium text-foreground">{formatMoney(resumen.gastos)}</span>
+                    <BadgeVar v={vGastos} invertido />
+                  </div>
+                </div>
+                <div className="h-px bg-border" />
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-foreground">Ganancia neta</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-foreground">{formatMoney(resumenAnterior.neto)}</span>
+                    <span className="text-muted-foreground text-xs">→</span>
+                    <span className="text-sm font-semibold text-foreground">{formatMoney(resumen.neto)}</span>
+                    <BadgeVar v={vNeto} />
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )
+        })()}
 
         {/* Botones acción */}
         <div className="grid grid-cols-2 gap-3">
