@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useRef } from "react"
+import React from "react"
 import { useRouter } from "next/navigation"
 import {
   LogOut, Plus, Minus, AlertTriangle, Clock,
   TrendingUp, TrendingDown, X, Heart, Send, Package,
-  Pencil, Trash2, ArrowUp, ArrowDown, Equal,
+  Pencil, Trash2, ArrowUp, ArrowDown, Equal, KeyRound, Lock, Unlock,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -35,6 +36,45 @@ const fmtFecha = (iso: string) => {
 
 const CATEGORIAS_INGRESO = ["Bebidas", "Snacks", "Cigarrillos", "Lácteos", "Golosinas", "Panadería", "Limpieza", "Otros"]
 const CATEGORIAS_GASTO   = ["Proveedor", "Servicios", "Alquiler", "Personal", "Impuestos", "Otros"]
+
+// ─── PinInputs — componente independiente para que React no lo destruya ──
+function PinInputs({
+  values,
+  setValues,
+  refs,
+}: {
+  values: string[]
+  setValues: (v: string[]) => void
+  refs: React.MutableRefObject<(HTMLInputElement | null)[]>
+}) {
+  return (
+    <div className="flex justify-center gap-3">
+      {values.map((v, i) => (
+        <input
+          key={i}
+          ref={el => { refs.current[i] = el }}
+          type="password"
+          inputMode="numeric"
+          maxLength={1}
+          value={v}
+          onChange={e => {
+            if (!/^\d*$/.test(e.target.value)) return
+            const nuevo = [...values]
+            nuevo[i] = e.target.value.slice(-1)
+            setValues(nuevo)
+            if (e.target.value && i < 3) refs.current[i + 1]?.focus()
+          }}
+          onKeyDown={e => {
+            if (e.key === "Backspace" && !values[i] && i > 0) {
+              refs.current[i - 1]?.focus()
+            }
+          }}
+          className="w-14 h-14 text-center text-2xl font-bold rounded-xl bg-input border-2 border-border focus:border-primary outline-none text-foreground transition-colors"
+        />
+      ))}
+    </div>
+  )
+}
 
 export default function DashboardClient({ perfil, movimientosIniciales }: Props) {
   const router = useRouter()
@@ -68,6 +108,26 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [eliminando, setEliminando] = useState<Movimiento | null>(null)
   const [savingDelete, setSavingDelete] = useState(false)
+
+  // ─── Modo empleado ───────────────────────────────────────
+  // Por defecto arranca en modo empleado (false = empleado, true = dueño)
+  // Si no hay PIN configurado arranca en modo dueño (primer uso)
+  const [modoDueno, setModoDueno] = useState(!perfil.pin_empleado)
+  const [pinModalOpen, setPinModalOpen] = useState(false)
+  const [pinInput, setPinInput] = useState(["", "", "", ""])
+  const [pinError, setPinError] = useState("")
+  const [verificandoPin, setVerificandoPin] = useState(false)
+  // Configurar PIN
+  const [configPinOpen, setConfigPinOpen] = useState(false)
+  const [pinNuevo, setPinNuevo] = useState(["", "", "", ""])
+  const [pinConfirm, setPinConfirm] = useState(["", "", "", ""])
+  const [guardandoPin, setGuardandoPin] = useState(false)
+  const [pinGuardado, setPinGuardado] = useState(false)
+  const [tienePinConfigurado, setTienePinConfigurado] = useState(!!perfil.pin_empleado)
+
+  const pinRefs = useRef<(HTMLInputElement | null)[]>([null,null,null,null])
+  const pinNuevoRefs = useRef<(HTMLInputElement | null)[]>([null,null,null,null])
+  const pinConfirmRefs = useRef<(HTMLInputElement | null)[]>([null,null,null,null])
 
   // ─── Sugerencias ─────────────────────────────────────────
   const [sugerencia, setSugerencia] = useState("")
@@ -429,6 +489,86 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
     setEnviandoSugerencia(false)
   }
 
+  // ─── Handlers PIN ────────────────────────────────────────
+
+  const handlePinInput = (
+    index: number,
+    value: string,
+    arr: string[],
+    setArr: (v: string[]) => void,
+    refs: React.RefObject<HTMLInputElement>[]
+  ) => {
+    if (!/^\d*$/.test(value)) return
+    const nuevo = [...arr]
+    nuevo[index] = value.slice(-1)
+    setArr(nuevo)
+    if (value && index < 3) {
+      refs[index + 1].current?.focus()
+    }
+  }
+
+  const handleVerificarPin = async () => {
+    const pin = pinInput.join("")
+    if (pin.length < 4) return
+    setVerificandoPin(true)
+    setPinError("")
+    const res = await fetch("/api/pin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accion: "verificar", pin }),
+    })
+    const data = await res.json()
+    if (res.status === 404) {
+      setPinError("No hay PIN configurado. Configuralo primero.")
+    } else if (!data.valido) {
+      setPinError("PIN incorrecto")
+      setPinInput(["", "", "", ""])
+      document.getElementById("pin-0")?.focus()
+    } else {
+      setModoDueno(true)
+      setPinModalOpen(false)
+      setPinInput(["", "", "", ""])
+      setPinError("")
+    }
+    setVerificandoPin(false)
+  }
+
+  const handleGuardarPin = async () => {
+    const pin = pinNuevo.join("")
+    const confirm = pinConfirm.join("")
+    if (pin.length < 4 || confirm.length < 4) return
+    if (pin !== confirm) {
+      setPinError("Los PINs no coinciden")
+      return
+    }
+    setGuardandoPin(true)
+    setPinError("")
+    const res = await fetch("/api/pin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accion: "guardar", pin }),
+    })
+    if (res.ok) {
+      setPinGuardado(true)
+      setPinNuevo(["", "", "", ""])
+      setPinConfirm(["", "", "", ""])
+      setTienePinConfigurado(true)
+      // Después de 2s cierra el modal y activa modo empleado automáticamente
+      setTimeout(() => {
+        setPinGuardado(false)
+        setConfigPinOpen(false)
+        setModoDueno(false)
+      }, 2000)
+    }
+    setGuardandoPin(false)
+  }
+
+  const handleBloquear = () => {
+    setModoDueno(false)
+    setPinInput(["", "", "", ""])
+    setPinError("")
+  }
+
   const handleLogout = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
@@ -438,18 +578,155 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
   const esGanancia = resumen.neto >= 0
   const maxMonto = top5[0]?.monto ?? 1
 
+  // ─── MODO EMPLEADO ────────────────────────────────────────
+  if (!modoDueno) {
+    return (
+      <div className="min-h-screen bg-background pb-8">
+        {/* Header empleado */}
+        <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+          <div className="flex items-center justify-between px-4 py-4 max-w-md mx-auto">
+            <div className="flex items-center gap-3">
+              <img src="/logo_kioscoapp.png" alt="KioskoApp" width={40} height={40} className="rounded-xl object-contain" />
+              <div>
+                <h1 className="text-xl font-bold text-foreground">{perfil.nombre_negocio}</h1>
+                <p className="text-sm text-muted-foreground">Modo empleado</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                if (!tienePinConfigurado) {
+                  // Sin PIN configurado → entra directo al modo dueño
+                  setModoDueno(true)
+                } else {
+                  setPinModalOpen(true)
+                  setPinError("")
+                  setPinInput(["","","",""])
+                }
+              }}
+                className="gap-2 border-border text-muted-foreground hover:text-foreground"
+              >
+                <KeyRound className="h-4 w-4" />
+                Modo Dueño
+              </Button>
+              <Button variant="ghost" size="icon" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
+                <LogOut className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+        </header>
+
+        <main className="px-4 max-w-md mx-auto space-y-5 pt-8">
+          {/* Período */}
+          <div className="flex items-center justify-center gap-2 text-muted-foreground">
+            <Clock className="h-4 w-4" />
+            <span className="text-sm font-medium">{meses[hoy.getMonth()]} {hoy.getFullYear()}</span>
+          </div>
+
+          {/* Botones acción */}
+          <div className="grid grid-cols-2 gap-3">
+            <Button onClick={() => handleOpenModal("ingreso")} className="h-20 text-xl font-semibold bg-success hover:bg-success/90 text-success-foreground flex-col gap-1">
+              <Plus className="h-6 w-6" />
+              Ingreso
+            </Button>
+            <Button onClick={() => handleOpenModal("gasto")} className="h-20 text-xl font-semibold bg-destructive hover:bg-destructive/90 text-destructive-foreground flex-col gap-1">
+              <Minus className="h-6 w-6" />
+              Gasto
+            </Button>
+          </div>
+
+          {/* Historial del día — solo descripción y categoría, sin montos */}
+          <Card className="p-4 bg-card border-border">
+            <h2 className="text-base font-semibold text-foreground mb-4">Movimientos de hoy</h2>
+            {movimientos.filter(m => new Date(m.fecha).toDateString() === hoy.toDateString()).length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Todavía no hay movimientos hoy</p>
+            ) : (
+              <div className="space-y-1">
+                {movimientos
+                  .filter(m => new Date(m.fecha).toDateString() === hoy.toDateString())
+                  .map(mov => (
+                    <div key={mov.id} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
+                      <div className={`p-2 rounded-lg shrink-0 ${mov.tipo === "ingreso" ? "bg-success/10" : "bg-destructive/10"}`}>
+                        {mov.tipo === "ingreso"
+                          ? <TrendingUp className="h-4 w-4 text-success" />
+                          : <TrendingDown className="h-4 w-4 text-destructive" />}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{mov.descripcion}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {mov.cantidad > 1 && `${mov.cantidad}x · `}
+                          {fmtFecha(mov.fecha)}
+                          {mov.categoria ? ` · ${mov.categoria}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </Card>
+        </main>
+
+        {/* Modal verificar PIN */}
+        <Dialog open={pinModalOpen} onOpenChange={v => { setPinModalOpen(v); if (!v) { setPinInput(["","","",""]); setPinError("") } }}>
+          <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-sm rounded-2xl bg-card border-border">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-foreground text-center">Modo Dueño</DialogTitle>
+              <button onClick={() => setPinModalOpen(false)} className="absolute right-4 top-4 text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+              </button>
+            </DialogHeader>
+            <div className="pt-2 space-y-6">
+              <p className="text-sm text-muted-foreground text-center">Ingresá tu PIN de 4 dígitos</p>
+              <PinInputs values={pinInput} setValues={setPinInput} refs={pinRefs} />
+              {pinError && <p className="text-sm text-destructive text-center">{pinError}</p>}
+              <Button
+                onClick={handleVerificarPin}
+                disabled={pinInput.join("").length < 4 || verificandoPin}
+                className="w-full h-12"
+              >
+                <Unlock className="h-4 w-4 mr-2" />
+                {verificandoPin ? "Verificando..." : "Desbloquear"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modales crear/editar/eliminar — iguales que modo dueño */}
+        {renderModales()}
+      </div>
+    )
+  }
+
+  // ─── MODO DUEÑO ───────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background pb-8">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="flex items-center justify-between px-4 py-4 max-w-md mx-auto">
-          <div>
-            <h1 className="text-xl font-bold text-foreground">{perfil.nombre_negocio}</h1>
-            <p className="text-sm text-muted-foreground">KioskoApp</p>
+          <div className="flex items-center gap-3">
+            <img src="/logo_kioscoapp.png" alt="KioskoApp" width={40} height={40} className="rounded-xl object-contain" />
+            <div>
+              <h1 className="text-xl font-bold text-foreground">{perfil.nombre_negocio}</h1>
+              <p className="text-sm text-muted-foreground">KioskoApp</p>
+            </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
-            <LogOut className="h-5 w-5" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleBloquear}
+              disabled={!tienePinConfigurado}
+              title={tienePinConfigurado ? "Activar modo empleado" : "Configurá un PIN primero"}
+              className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+            >
+              <Lock className="h-5 w-5" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={handleLogout} className="text-muted-foreground hover:text-foreground">
+              <LogOut className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -744,6 +1021,24 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
           </div>
         </Card>
 
+        {/* Configurar PIN empleado */}
+        <Card className="p-4 bg-card border-border">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <KeyRound className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium text-foreground">PIN de empleado</p>
+                <p className="text-xs text-muted-foreground">
+                  {tienePinConfigurado ? "PIN configurado ✓" : "Sin PIN configurado"}
+                </p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => { setPinError(""); setConfigPinOpen(true) }}>
+              {tienePinConfigurado ? "Cambiar" : "Configurar"}
+            </Button>
+          </div>
+        </Card>
+
         {/* Sugerencias */}
         <Card className="p-4 bg-card border-border">
           <h2 className="text-base font-semibold text-foreground mb-1">Sugerencias</h2>
@@ -766,6 +1061,13 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
         </Card>
 
       </main>
+
+      {renderModales()}
+    </div>
+  )
+
+  // ─── Modales reutilizables (modo dueño y empleado) ────────
+  function renderModales() { return (<>
 
       {/* ─── Modal CREAR ───────────────────────────────────── */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
@@ -1010,6 +1312,44 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
         </DialogContent>
       </Dialog>
 
-    </div>
-  )
+      {/* ─── Modal CONFIG PIN ──────────────────────────────── */}
+      <Dialog open={configPinOpen} onOpenChange={v => { setConfigPinOpen(v); setPinError(""); setPinNuevo(["","","",""]); setPinConfirm(["","","",""]) }}>
+        <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-sm rounded-2xl bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-foreground text-center">
+              {tienePinConfigurado ? "Cambiar PIN" : "Configurar PIN"}
+            </DialogTitle>
+            <button onClick={() => setConfigPinOpen(false)} className="absolute right-4 top-4 text-muted-foreground hover:text-foreground">
+              <X className="h-5 w-5" />
+            </button>
+          </DialogHeader>
+          <div className="pt-2 space-y-5">
+            {pinGuardado ? (
+              <p className="text-sm text-success text-center py-4">✓ PIN guardado correctamente</p>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground text-center block">PIN nuevo</Label>
+                  <PinInputs values={pinNuevo} setValues={setPinNuevo} refs={pinNuevoRefs} />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground text-center block">Confirmar PIN</Label>
+                  <PinInputs values={pinConfirm} setValues={setPinConfirm} refs={pinConfirmRefs} />
+                </div>
+                {pinError && <p className="text-sm text-destructive text-center">{pinError}</p>}
+                <Button
+                  onClick={handleGuardarPin}
+                  disabled={pinNuevo.join("").length < 4 || pinConfirm.join("").length < 4 || guardandoPin}
+                  className="w-full h-12"
+                >
+                  <KeyRound className="h-4 w-4 mr-2" />
+                  {guardandoPin ? "Guardando..." : "Guardar PIN"}
+                </Button>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+  </>) }
 }

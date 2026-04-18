@@ -7,6 +7,7 @@ export interface Perfil {
   plan_expires_at: string | null
   mp_subscription_id: string | null
   mp_payer_email: string | null
+  pin_empleado: string | null   
   created_at: string
 }
 
@@ -19,7 +20,7 @@ export interface Movimiento {
   cantidad: number
   monto: number
   es_promo: boolean | null
-  categoria: string | null   // ← nuevo
+  categoria: string | null   
   fecha: string
   created_at: string
 }

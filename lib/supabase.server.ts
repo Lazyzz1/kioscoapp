@@ -10,7 +10,21 @@ export function createServerComponentClient() {
   const cookieStore = cookies()
   return createServerClient(SUPABASE_URL, SUPABASE_ANON, {
     cookies: {
-      get(name: string) { return cookieStore.get(name)?.value },
+      get(name: string) {
+        return cookieStore.get(name)?.value
+      },
+      set(name: string, value: string, options: Record<string, unknown>) {
+        try {
+          // En Route Handlers cookies() es mutable, en Server Components no.
+          // El try/catch evita que explote en ambos contextos.
+          ;(cookieStore as any).set({ name, value, ...options })
+        } catch {}
+      },
+      remove(name: string, options: Record<string, unknown>) {
+        try {
+          ;(cookieStore as any).set({ name, value: '', ...options })
+        } catch {}
+      },
     },
   })
 }
