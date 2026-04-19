@@ -3,7 +3,7 @@ import { createServerComponentClient, createAdminClient } from '@/lib/supabase.s
 
 // ─── POST: guardar o verificar PIN ───────────────────────
 export async function POST(req: NextRequest) {
-  const supabase = createServerComponentClient()
+  const supabase = await createServerComponentClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 })

@@ -3,7 +3,7 @@ import { createServerComponentClient, createAdminClient } from '@/lib/supabase.s
 import { cancelarSuscripcion } from '@/lib/mercadopago'
 
 export async function POST() {
-  const supabase = createServerComponentClient()
+  const supabase = await createServerComponentClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 

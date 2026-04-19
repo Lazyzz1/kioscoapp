@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerComponentClient, createAdminClient } from "@/lib/supabase.server"
 
-
-// ─── PATCH: editar un movimiento ─────────────────────────────
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = createServerComponentClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  const { id } = await params
+
+  const supabase = await createServerComponentClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
 
   const body = await req.json()
   const { descripcion, precio_unitario, cantidad, monto, es_promo, categoria } = body
@@ -18,31 +18,38 @@ export async function PATCH(
   const { data, error } = await admin
     .from("movimientos")
     .update({ descripcion, precio_unitario, cantidad, monto, es_promo, categoria: categoria || null })
-    .eq("id", params.id)
-    .eq("user_id", user.id)   // seguridad: solo el dueño puede editar
+    .eq("id", id)
+    .eq("user_id", user.id)
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error("[PATCH /api/movimientos/[id]]", error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
   return NextResponse.json({ movimiento: data })
 }
 
-// ─── DELETE: eliminar un movimiento ──────────────────────────
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = createServerComponentClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  const { id } = await params
+
+  const supabase = await createServerComponentClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
 
   const admin = createAdminClient()
   const { error } = await admin
     .from("movimientos")
     .delete()
-    .eq("id", params.id)
-    .eq("user_id", user.id)   // seguridad: solo el dueño puede eliminar
+    .eq("id", id)
+    .eq("user_id", user.id)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error("[DELETE /api/movimientos/[id]]", error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
   return NextResponse.json({ ok: true })
 }

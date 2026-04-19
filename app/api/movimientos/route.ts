@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createServerComponentClient, createAdminClient } from "@/lib/supabase.server"
 
 export async function GET() {
-  const supabase = createServerComponentClient()
+  const supabase = await createServerComponentClient()
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {
@@ -25,7 +25,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = createServerComponentClient()
+  const supabase = await createServerComponentClient()
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {

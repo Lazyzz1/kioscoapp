@@ -19,7 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { createClient } from "@/lib/supabase"
 import { Perfil, Movimiento, diasRestantesTrial } from "@/types"
 
-const LINK_DONACION = "https://link.mercadopago.com.ar/tu-link-aqui"
+const LINK_DONACION = "https://link.mercadopago.com.ar/turnosbots"
 
 interface Props {
   perfil: Perfil
@@ -706,7 +706,7 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="flex items-center justify-between px-4 py-4 max-w-md mx-auto">
           <div className="flex items-center gap-3">
-            <img src="/logo_kioscoapp.png" alt="KioskoApp" width={40} height={40} className="rounded-xl object-contain" />
+            <img src="/logo_kioscoapp.png" alt="KioskoApp" width={70} height={70} className="rounded-xl" />
             <div>
               <h1 className="text-xl font-bold text-foreground">{perfil.nombre_negocio}</h1>
               <p className="text-sm text-muted-foreground">KioskoApp</p>

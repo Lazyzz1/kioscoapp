@@ -4,7 +4,7 @@ import { Perfil, Movimiento } from '@/types'
 import DashboardClient from '@/components/DashboardClient'
 
 export default async function DashboardPage() {
-  const supabase = createServerComponentClient()
+  const supabase = await createServerComponentClient()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
