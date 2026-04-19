@@ -1,133 +1,128 @@
 'use client'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
+import { Perfil, diasRestantesTrial } from '@/types'
 
-export default function RegisterPage() {
-  const router = useRouter()
-  const [form, setForm] = useState({ nombre: '', email: '', password: '' })
-  const [showPass, setShowPass] = useState(false)
-  const [error, setError] = useState('')
+export default function PagarPage() {
+  const [perfil, setPerfil] = useState<Perfil | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError('')
-
-    if (form.password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres.')
-      return
+  useEffect(() => {
+    async function load() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data } = await supabase
+        .from('perfiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+      setPerfil(data)
     }
+    load()
+  }, [])
 
+  async function handleSuscribirse() {
     setLoading(true)
-    const supabase = createClient()
-    const { error } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-      options: {
-        data: { nombre_negocio: form.nombre },
-      },
-    })
-
-    if (error) {
-      setError(
-        error.message === 'User already registered'
-          ? 'Ya existe una cuenta con ese email.'
-          : error.message.includes('password')
-          ? 'La contraseña debe tener al menos 6 caracteres.'
-          : 'Hubo un problema al crear la cuenta. Intentá de nuevo.'
-      )
+    setError('')
+    try {
+      const res = await fetch('/api/suscripcion/crear', { method: 'POST' })
+      const data = await res.json()
+      if (data.url) {
+        window.location.href = data.url
+      } else {
+        setError('No se pudo iniciar el pago. Intentá de nuevo.')
+      }
+    } catch {
+      setError('Hubo un problema. Intentá de nuevo.')
+    } finally {
       setLoading(false)
-      return
     }
-
-    window.location.href = '/dashboard'
   }
 
+  const diasRestantes = perfil ? diasRestantesTrial(perfil) : null
+  const trialActivo = perfil?.plan === 'trial' && (diasRestantes ?? 0) > 0
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-950">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
+      <div className="w-full max-w-sm flex flex-col gap-4">
 
-        <div className="text-center mb-8">
-          <img
-            src="/logo_kioscoapp.png"
-            alt="KioskoApp"
-            className="w-20 h-20 mx-auto mb-3 rounded-2xl object-contain"
-          />
-          <h1 className="text-2xl font-semibold text-white">Crear cuenta</h1>
-          <p className="text-sm text-gray-400 mt-1">7 días gratis, sin tarjeta</p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="bg-gray-900 border border-gray-800 rounded-2xl p-6 flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm text-gray-400">Nombre del negocio</label>
-            <input
-              className="w-full px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 text-base focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500 transition-all"
-              placeholder="Kiosco El Sol"
-              value={form.nombre}
-              onChange={e => setForm({ ...form, nombre: e.target.value })}
-              required
-            />
+        {/* Estado del trial */}
+        {trialActivo ? (
+          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
+            <p className="text-amber-800 font-medium">
+              Te quedan {diasRestantes} {diasRestantes === 1 ? 'día' : 'días'} de prueba gratis
+            </p>
+            <p className="text-amber-700 text-sm mt-1">
+              Suscribite ahora para no perder el acceso
+            </p>
           </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm text-gray-400">Email</label>
-            <input
-              type="email"
-              className="w-full px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 text-base focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500 transition-all"
-              placeholder="tu@email.com"
-              value={form.email}
-              onChange={e => setForm({ ...form, email: e.target.value })}
-              required
-            />
+        ) : (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-center">
+            <p className="text-red-800 font-medium">Tu período de prueba terminó</p>
+            <p className="text-red-700 text-sm mt-1">Suscribite para volver a usar KioskoApp</p>
           </div>
+        )}
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm text-gray-400">Contraseña</label>
-            <div className="relative">
-              <input
-                type={showPass ? 'text' : 'password'}
-                className="w-full px-3 py-2.5 pr-11 bg-gray-800 border border-gray-700 rounded-xl text-white placeholder-gray-500 text-base focus:outline-none focus:ring-2 focus:ring-amber-500/40 focus:border-amber-500 transition-all"
-                placeholder="Mínimo 6 caracteres"
-                value={form.password}
-                onChange={e => setForm({ ...form, password: e.target.value })}
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPass(!showPass)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
-              >
-                {showPass ? (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                  </svg>
-                )}
-              </button>
+        {/* Card de suscripción */}
+        <div className="card p-6 flex flex-col gap-5">
+          <div className="text-center">
+            <div className="inline-flex w-12 h-12 rounded-2xl bg-amber-600 items-center justify-center mb-3">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+              </svg>
             </div>
-            <p className="text-xs text-gray-600">Mínimo 6 caracteres</p>
+            <h1 className="text-xl font-semibold text-gray-900">KioskoApp</h1>
+            <div className="mt-3">
+              <span className="text-3xl font-semibold text-gray-900">$5 USD</span>
+              <span className="text-gray-500 text-sm"> / mes</span>
+            </div>
+            <p className="text-sm text-gray-500 mt-1">Cancelá cuando quieras</p>
+          </div>
+
+          <div className="flex flex-col gap-2.5">
+            {[
+              'Registrá ingresos y gastos sin límite',
+              'Dashboard con tu ganancia del mes',
+              'Alertas automáticas',
+              'Acceso desde cualquier celular',
+              'Soporte por WhatsApp',
+            ].map(item => (
+              <div key={item} className="flex items-center gap-2.5">
+                <div className="w-4 h-4 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-2.5 h-2.5 text-green-700" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/>
+                  </svg>
+                </div>
+                <span className="text-sm text-gray-700">{item}</span>
+              </div>
+            ))}
           </div>
 
           {error && (
-            <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 px-3 py-2 rounded-lg">{error}</p>
+            <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg text-center">{error}</p>
           )}
 
-          <button type="submit" disabled={loading}
-            className="w-full py-3 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-medium rounded-xl transition-all active:scale-[0.98] mt-1">
-            {loading ? 'Creando cuenta...' : 'Empezar prueba gratis'}
+          <button onClick={handleSuscribirse} className="btn-primary" disabled={loading}>
+            {loading ? 'Redirigiendo a Mercado Pago...' : 'Suscribirme con Mercado Pago'}
           </button>
-        </form>
 
-        <p className="text-center text-sm text-gray-500 mt-4">
-          ¿Ya tenés cuenta?{' '}
-          <Link href="/login" className="text-amber-500 hover:text-amber-400 font-medium">Iniciar sesión</Link>
-        </p>
+          <p className="text-xs text-gray-400 text-center">
+            Pago seguro procesado por Mercado Pago. Podés cancelar desde tu perfil en cualquier momento.
+          </p>
+        </div>
+
+        <button
+          onClick={async () => {
+            const supabase = createClient()
+            await supabase.auth.signOut()
+            window.location.href = '/login'
+          }}
+          className="text-sm text-gray-400 text-center hover:text-gray-600 transition-colors"
+        >
+          Cerrar sesión
+        </button>
       </div>
     </div>
   )

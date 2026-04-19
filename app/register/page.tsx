@@ -42,7 +42,7 @@ export default function RegisterPage() {
       return
     }
 
-    router.push('/dashboard')
+    window.location.href = '/dashboard'
   }
 
   return (
@@ -50,11 +50,11 @@ export default function RegisterPage() {
       <div className="w-full max-w-sm">
 
         <div className="text-center mb-8">
-          <div className="inline-flex w-14 h-14 rounded-2xl bg-amber-600 items-center justify-center mb-3">
-            <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-            </svg>
-          </div>
+          <img
+            src="/logo_kioscoapp.png"
+            alt="KioskoApp"
+            className="w-20 h-20 mx-auto mb-3 rounded-2xl object-contain"
+          />
           <h1 className="text-2xl font-semibold text-white">Crear cuenta</h1>
           <p className="text-sm text-gray-400 mt-1">7 días gratis, sin tarjeta</p>
         </div>
