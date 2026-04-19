@@ -1,11 +1,9 @@
 'use client'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 
 export default function LoginPage() {
-  const router = useRouter()
   const [form, setForm] = useState({ email: '', password: '' })
   const [showPass, setShowPass] = useState(false)
   const [error, setError] = useState('')
@@ -28,8 +26,8 @@ export default function LoginPage() {
       return
     }
 
-    // Esperamos a que la sesión esté guardada en las cookies
-    await supabase.auth.getSession()
+    // Sincronizar sesión con el servidor antes de redirigir
+    await fetch('/api/auth/session', { method: 'POST' })
     window.location.replace('/dashboard')
   }
 
