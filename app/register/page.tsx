@@ -42,7 +42,9 @@ export default function RegisterPage() {
       return
     }
 
-    window.location.href = '/dashboard'
+    // Esperamos a que la sesión esté guardada en las cookies
+    await supabase.auth.getSession()
+    window.location.replace('/dashboard')
   }
 
   return (
