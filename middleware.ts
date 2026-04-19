@@ -1,37 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerComponentClient, createMiddlewareClient } from '@/lib/supabase.server'
+import { createServerClient } from '@supabase/ssr'
 import { planVigente } from '@/types'
 
-// Rutas públicas que no requieren auth ni suscripción
 const PUBLIC_PATHS = ['/login', '/register', '/pagar', '/api/webhooks']
 
 export async function middleware(req: NextRequest) {
-  const res = NextResponse.next()
   const { pathname } = req.nextUrl
 
-  // Dejar pasar rutas públicas y archivos estáticos
-  if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) return res
-  if (pathname.startsWith('/_next') || pathname.includes('.')) return res
+  if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) return NextResponse.next()
+  if (pathname.startsWith('/_next') || pathname.includes('.')) return NextResponse.next()
 
-  const supabase = createMiddlewareClient(req, res)
+  let res = NextResponse.next({
+    request: { headers: req.headers },
+  })
 
-  // 1. Verificar que haya sesión activa
-  const { data: { session } } = await supabase.auth.getSession()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return req.cookies.getAll()
+        },
+        setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
+          cookiesToSet.forEach(({ name, value }) => req.cookies.set(name, value))
+          res = NextResponse.next({ request: req })
+          cookiesToSet.forEach(({ name, value, options }) =>
+            res.cookies.set(name, value, options as any)
+          )
+        },
+      },
+    }
+  )
 
-  if (!session) {
+  // Usar getUser() en vez de getSession() — más seguro
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
 
-  // 2. Verificar suscripción vigente (trial o activa)
   const { data: perfil } = await supabase
     .from('perfiles')
     .select('plan, trial_ends_at, plan_expires_at')
-    .eq('id', session.user.id)
+    .eq('id', user.id)
     .single()
 
   if (!perfil || !planVigente(perfil as any)) {
-    // No tiene plan vigente → redirigir a pagar
-    // Pero si ya está en /pagar, no crear loop
     if (!pathname.startsWith('/pagar')) {
       return NextResponse.redirect(new URL('/pagar', req.url))
     }
