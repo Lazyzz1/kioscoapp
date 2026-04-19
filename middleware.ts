@@ -33,17 +33,17 @@ export async function middleware(req: NextRequest) {
     }
   )
 
-  // Usar getUser() en vez de getSession() — más seguro
-  const { data: { user } } = await supabase.auth.getUser()
+  // getSession lee directo de la cookie — más rápido y confiable en edge
+  const { data: { session } } = await supabase.auth.getSession()
 
-  if (!user) {
+  if (!session) {
     return NextResponse.redirect(new URL('/login', req.url))
   }
 
   const { data: perfil } = await supabase
     .from('perfiles')
     .select('plan, trial_ends_at, plan_expires_at')
-    .eq('id', user.id)
+    .eq('id', session.user.id)
     .single()
 
   if (!perfil || !planVigente(perfil as any)) {
