@@ -1,12 +1,10 @@
-import MercadoPagoConfig, { PreApproval, PreApprovalPlan } from 'mercadopago'
+import MercadoPagoConfig, { PreApproval } from 'mercadopago'
 
 const client = new MercadoPagoConfig({
   accessToken: process.env.MP_ACCESS_TOKEN!,
 })
 
 // ─── Crear link de suscripción para un usuario ───────────
-// MP redirige al usuario a este link para que ingrese su tarjeta.
-// Al confirmar, MP llama nuestro webhook con el subscription_id.
 export async function crearLinkSuscripcion(params: {
   userEmail: string
   userId: string
@@ -19,7 +17,8 @@ export async function crearLinkSuscripcion(params: {
       preapproval_plan_id: process.env.MP_PLAN_ID!,
       payer_email: params.userEmail,
       back_url: params.backUrl,
-      external_reference: params.userId, // lo usamos en el webhook para identificar al usuario
+      external_reference: params.userId,
+      status: 'pending', // ✅ MP genera el link — el usuario ingresa su tarjeta ahí
     },
   })
 
@@ -40,7 +39,6 @@ export async function cancelarSuscripcion(subscriptionId: string) {
 }
 
 // ─── Verificar firma del webhook ─────────────────────────
-// MP envía x-signature en el header. Lo validamos para evitar fraudes.
 export function verificarWebhookSignature(
   rawBody: string,
   xSignature: string,
@@ -49,7 +47,6 @@ export function verificarWebhookSignature(
   const crypto = require('crypto')
   const secret = process.env.MP_WEBHOOK_SECRET!
 
-  // Formato: ts=<timestamp>,v1=<hash>
   const parts = Object.fromEntries(
     xSignature.split(',').map(p => p.split('='))
   )

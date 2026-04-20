@@ -75,7 +75,7 @@ export default function PagarPage() {
             </div>
             <h1 className="text-xl font-semibold text-white">KioskoApp</h1>
             <div className="mt-3">
-              <span className="text-3xl font-semibold text-white">$5 USD</span>
+              <span className="text-3xl font-semibold text-white">$6.700 ARS</span>
               <span className="text-gray-400 text-sm"> / mes</span>
             </div>
             <p className="text-sm text-gray-500 mt-1">Cancelá cuando quieras</p>
