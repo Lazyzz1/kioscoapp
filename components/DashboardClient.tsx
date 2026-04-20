@@ -134,6 +134,11 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
   const [enviandoSugerencia, setEnviandoSugerencia] = useState(false)
   const [sugerenciaEnviada, setSugerenciaEnviada] = useState(false)
 
+  // ─── Cancelar suscripción ─────────────────────────────
+  const [cancelModalOpen, setCancelModalOpen] = useState(false)
+  const [cancelando, setCancelando] = useState(false)
+  const [cancelError, setCancelError] = useState('')
+
   const hoy = new Date()
   const meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]
 
@@ -487,6 +492,24 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
       setTimeout(() => setSugerenciaEnviada(false), 4000)
     }
     setEnviandoSugerencia(false)
+  }
+
+  //
+  const handleCancelarSuscripcion = async () => {
+  setCancelando(true)
+  setCancelError('')
+  try {
+    const res = await fetch('/api/suscripcion/cancelar', { method: 'POST' })
+    if (res.ok) {
+      window.location.href = '/pagar'
+    } else {
+      setCancelError('No se pudo cancelar. Contactanos por WhatsApp.')
+    }
+  } catch {
+    setCancelError('Hubo un problema. Intentá de nuevo.')
+  } finally {
+    setCancelando(false)
+  }
   }
 
   // ─── Handlers PIN ────────────────────────────────────────
@@ -1059,7 +1082,29 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
             </Button>
           )}
         </Card>
-
+      {/* Suscripción — solo si el plan es pagado */}
+      {(perfil.plan as string) === 'pagado' && (
+        <Card className="p-4 bg-card border-border">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-foreground">Suscripción activa</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {perfil.plan_expires_at
+                  ? `Próximo cobro: ${new Date(perfil.plan_expires_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })}`
+                  : '$6.700 / mes'}
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCancelModalOpen(true)}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10 text-xs"
+            >
+              Cancelar
+            </Button>
+          </div>
+        </Card>
+       )}
       </main>
 
       {renderModales()}
@@ -1347,6 +1392,41 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
                 </Button>
               </>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Modal CANCELAR SUSCRIPCIÓN ───────────────────── */}
+      <Dialog open={cancelModalOpen} onOpenChange={setCancelModalOpen}>
+        <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-sm rounded-2xl bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-foreground">Cancelar suscripción</DialogTitle>
+            <button onClick={() => setCancelModalOpen(false)} className="absolute right-4 top-4 text-muted-foreground hover:text-foreground">
+              <X className="h-5 w-5" />
+            </button>
+          </DialogHeader>
+          <div className="pt-2 space-y-5">
+            <div className="p-4 rounded-xl bg-destructive/10">
+              <p className="text-sm text-foreground font-medium">¿Seguro que querés cancelar?</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Vas a perder el acceso al finalizar el período actual. Esta acción no se puede deshacer.
+              </p>
+            </div>
+            {cancelError && (
+              <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{cancelError}</p>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <Button variant="outline" onClick={() => setCancelModalOpen(false)} className="h-12 border-border">
+                Volver
+              </Button>
+              <Button
+                onClick={handleCancelarSuscripcion}
+                disabled={cancelando}
+                className="h-12 bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              >
+                {cancelando ? 'Cancelando...' : 'Sí, cancelar'}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

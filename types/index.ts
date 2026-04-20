@@ -1,7 +1,7 @@
 export interface Perfil {
   id: string
   nombre_negocio: string
-  plan: "trial" | "active" | "expired" | "cancelled"
+  plan: 'trial' | 'active' | 'expired' | 'cancelled' | 'pagado'
   trial_ends_at: string | null
   plan_activated_at: string | null
   plan_expires_at: string | null
