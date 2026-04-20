@@ -10,23 +10,23 @@ export async function crearLinkSuscripcion(params: {
   userId: string
   backUrl: string
 }): Promise<string> {
-  const preApproval = new PreApproval(client)
+  // Obtener el init_point del plan directamente — sin crear PreApproval
+  const res = await fetch(
+    `https://api.mercadopago.com/preapproval_plan/${process.env.MP_PLAN_ID}`,
+    {
+      headers: {
+        'Authorization': `Bearer ${process.env.MP_ACCESS_TOKEN}`,
+      },
+    }
+  )
 
-  const response = await preApproval.create({
-    body: {
-      preapproval_plan_id: process.env.MP_PLAN_ID!,
-      payer_email: params.userEmail,
-      back_url: params.backUrl,
-      external_reference: params.userId,
-      status: 'pending', // ✅ MP genera el link — el usuario ingresa su tarjeta ahí
-    },
-  })
+  const plan = await res.json()
 
-  if (!response.init_point) {
-    throw new Error('MP no devolvió init_point')
+  if (!res.ok || !plan.init_point) {
+    throw new Error(`MP error: ${JSON.stringify(plan)}`)
   }
 
-  return response.init_point
+  return plan.init_point
 }
 
 // ─── Cancelar suscripción ────────────────────────────────

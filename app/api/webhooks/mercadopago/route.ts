@@ -37,10 +37,16 @@ export async function POST(req: NextRequest) {
     const preApproval = new PreApproval(mpClient)
     const sub = await preApproval.get({ id: subscriptionId })
 
-    const userId = sub.external_reference
-    if (!userId) return NextResponse.json({ ok: true })
+   const payerEmail = sub.payer_email
+    if (!payerEmail) return NextResponse.json({ ok: true })
 
+    // Buscar usuario por email en Supabase
     const supabase = createAdminClient()
+    const { data: { users } } = await supabase.auth.admin.listUsers()
+    const user = users.find((u: { id: string; email?: string }) => u.email === payerEmail)
+    if (!user) return NextResponse.json({ ok: true })
+    const userId = user.id
+
     const ahora = new Date()
 
     if (sub.status === 'authorized') {
