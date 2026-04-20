@@ -26,9 +26,8 @@ export default function LoginPage() {
       return
     }
 
-    // Sincronizar sesión con el servidor antes de redirigir
-    await fetch('/api/auth/session', { method: 'POST' })
-    window.location.replace('/dashboard')
+    // ✅ La cookie ya fue seteada por createBrowserClient — redirigir directo
+    window.location.href = '/dashboard'
   }
 
   return (

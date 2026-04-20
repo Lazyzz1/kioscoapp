@@ -2,7 +2,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 // Rutas que NO requieren autenticación
-const PUBLIC_ROUTES = ['/', '/login', '/register', '/pagar', '/api/webhooks/mercadopago']
+const PUBLIC_ROUTES = ['/', '/login', '/register', '/pagar', '/api/webhooks/mercadopago', '/auth']
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -11,7 +11,8 @@ export async function middleware(request: NextRequest) {
   if (
     PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(route + '/')) ||
     pathname.startsWith('/_next') ||
-    pathname.startsWith('/favicon')
+    pathname.startsWith('/favicon') ||
+    pathname.startsWith('/api/auth')
   ) {
     return NextResponse.next()
   }
@@ -35,17 +36,18 @@ export async function middleware(request: NextRequest) {
           response = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
-  )
+          )
         },
       },
     }
   )
 
-  // ✅ Usar getUser() — más confiable que getSession() en Edge
-  const { data: { user }, error } = await supabase.auth.getUser()
+  // ✅ getSession() lee la cookie localmente — no hace llamadas de red
+  // getUser() hace una llamada a Supabase que puede fallar en Edge Runtime
+  const { data: { session } } = await supabase.auth.getSession()
 
   // No autenticado → /login
-  if (error || !user) {
+  if (!session) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
@@ -53,7 +55,7 @@ export async function middleware(request: NextRequest) {
   const { data: perfil } = await supabase
     .from('perfiles')
     .select('plan, trial_ends_at, plan_expires_at')
-    .eq('id', user.id)
+    .eq('id', session.user.id)
     .single()
 
   if (perfil) {
@@ -63,7 +65,7 @@ export async function middleware(request: NextRequest) {
     const esPago = perfil.plan === 'pagado' && planVigente
     const tieneAcceso = trialVigente || esPago
 
-    // ✅ Sin acceso → /pagar (NO a /login)
+    // Sin acceso → /pagar (NO a /login)
     if (!tieneAcceso && !pathname.startsWith('/pagar')) {
       return NextResponse.redirect(new URL('/pagar', request.url))
     }
