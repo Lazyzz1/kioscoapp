@@ -1,22 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-// Rutas que NO requieren autenticación
-const PUBLIC_ROUTES = ['/', '/login', '/register', '/pagar', '/api/webhooks/mercadopago', '/auth']
-
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
-
-  // Dejar pasar rutas públicas y assets
-  if (
-    PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(route + '/')) ||
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/favicon') ||
-    pathname.startsWith('/api/auth')
-  ) {
-    return NextResponse.next()
-  }
-
   let response = NextResponse.next({
     request: { headers: request.headers },
   })
@@ -42,34 +27,8 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // ✅ getSession() lee la cookie localmente — no hace llamadas de red
-  // getUser() hace una llamada a Supabase que puede fallar en Edge Runtime
-  const { data: { session } } = await supabase.auth.getSession()
-
-  // No autenticado → /login
-  if (!session) {
-    return NextResponse.redirect(new URL('/login', request.url))
-  }
-
-  // Autenticado → chequear suscripción/trial
-  const { data: perfil } = await supabase
-    .from('perfiles')
-    .select('plan, trial_ends_at, plan_expires_at')
-    .eq('id', session.user.id)
-    .single()
-
-  if (perfil) {
-    const ahora = new Date()
-    const trialVigente = perfil.trial_ends_at && new Date(perfil.trial_ends_at) > ahora
-    const planVigente = perfil.plan_expires_at && new Date(perfil.plan_expires_at) > ahora
-    const esPago = perfil.plan === 'pagado' && planVigente
-    const tieneAcceso = trialVigente || esPago
-
-    // Sin acceso → /pagar (NO a /login)
-    if (!tieneAcceso && !pathname.startsWith('/pagar')) {
-      return NextResponse.redirect(new URL('/pagar', request.url))
-    }
-  }
+  // Solo refresca la sesión — los redirects van en cada página (Server Component)
+  await supabase.auth.getSession()
 
   return response
 }
