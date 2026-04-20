@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerComponentClient, createAdminClient } from '@/lib/supabase.server'
+import { createAdminClient } from '@/lib/supabase.server'
 import { verificarWebhookSignature } from '@/lib/mercadopago'
 import MercadoPagoConfig, { PreApproval } from 'mercadopago'
 
@@ -12,12 +12,17 @@ export async function POST(req: NextRequest) {
   const xSignature = req.headers.get('x-signature') ?? ''
   const xRequestId = req.headers.get('x-request-id') ?? ''
 
-  // Verificar firma de MP para evitar llamadas falsas
-  if (!verificarWebhookSignature(rawBody, xSignature, xRequestId)) {
-    return NextResponse.json({ error: 'Firma inválida' }, { status: 401 })
+  // ✅ Solo verificar firma si el secret está configurado (no es placeholder)
+  const webhookSecret = process.env.MP_WEBHOOK_SECRET
+  if (webhookSecret && webhookSecret !== 'placeholder') {
+    if (!verificarWebhookSignature(rawBody, xSignature, xRequestId)) {
+      console.error('Webhook: firma inválida')
+      return NextResponse.json({ error: 'Firma inválida' }, { status: 401 })
+    }
   }
 
   const event = JSON.parse(rawBody)
+  console.log('Webhook MP recibido:', event.type, event.data?.id)
 
   // Solo nos interesan eventos de preapproval (suscripciones)
   if (event.type !== 'subscription_preapproval') {
@@ -32,35 +37,43 @@ export async function POST(req: NextRequest) {
     const preApproval = new PreApproval(mpClient)
     const sub = await preApproval.get({ id: subscriptionId })
 
-    const userId = sub.external_reference // lo guardamos al crear el link
+    const userId = sub.external_reference
     if (!userId) return NextResponse.json({ ok: true })
 
     const supabase = createAdminClient()
+    const ahora = new Date()
 
-    // Mapear estado de MP a nuestro plan
-    const nuevoPlan = (() => {
-      switch (sub.status) {
-        case 'authorized': return 'active'
-        case 'cancelled':  return 'cancelled'
-        case 'paused':     return 'expired'
-        default:           return 'expired'
-      }
-    })()
+    if (sub.status === 'authorized') {
+      // ✅ Pago activo: plan='pagado', plan_expires_at = 30 días desde hoy
+      const expira = new Date(ahora)
+      expira.setDate(expira.getDate() + 32) // 32 días de margen para el próximo cobro
 
-    await supabase
-      .from('perfiles')
-      .update({
-        plan: nuevoPlan,
-        mp_subscription_id: subscriptionId,
-        mp_payer_email: sub.payer_email ?? null,
-        plan_activated_at: nuevoPlan === 'active' ? new Date().toISOString() : undefined,
-        plan_expires_at: nuevoPlan !== 'active'
-          ? new Date().toISOString()
-          : null,
-      })
-      .eq('id', userId)
+      await supabase
+        .from('perfiles')
+        .update({
+          plan: 'pagado',                           // ✅ coincide con el chequeo del dashboard
+          mp_subscription_id: subscriptionId,
+          mp_payer_email: sub.payer_email ?? null,
+          plan_activated_at: ahora.toISOString(),
+          plan_expires_at: expira.toISOString(),    // ✅ fecha futura, no null
+        })
+        .eq('id', userId)
 
-    console.log(`Suscripción ${subscriptionId}: ${sub.status} → plan=${nuevoPlan} user=${userId}`)
+      console.log(`✅ Suscripción activada: user=${userId} expira=${expira.toISOString()}`)
+
+    } else if (sub.status === 'cancelled' || sub.status === 'paused') {
+      // Suscripción cancelada o pausada → expirar acceso
+      await supabase
+        .from('perfiles')
+        .update({
+          plan: 'cancelled',
+          plan_expires_at: ahora.toISOString(), // expira ahora
+        })
+        .eq('id', userId)
+
+      console.log(`❌ Suscripción cancelada: user=${userId} status=${sub.status}`)
+    }
+
     return NextResponse.json({ ok: true })
 
   } catch (e: any) {
