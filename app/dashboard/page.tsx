@@ -21,11 +21,20 @@ export default async function DashboardPage() {
       .from('movimientos')
       .select('*')
       .eq('user_id', user.id)
-      .gte('fecha', primerDiaMesAnterior)   // desde el 1° del mes anterior
+      .gte('fecha', primerDiaMesAnterior)
       .order('fecha', { ascending: false }),
   ])
 
   if (!perfil) redirect('/login')
+
+  // ✅ Chequeo de trial / suscripción — redirige a /pagar si venció
+  const ahora = new Date()
+  const trialVigente = perfil.trial_ends_at && new Date(perfil.trial_ends_at) > ahora
+  const planVigente = perfil.plan_expires_at && new Date(perfil.plan_expires_at) > ahora
+  const esPago = perfil.plan === 'pagado' && planVigente
+  const tieneAcceso = trialVigente || esPago
+
+  if (!tieneAcceso) redirect('/pagar')
 
   return (
     <DashboardClient
