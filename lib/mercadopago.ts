@@ -20,6 +20,7 @@ export async function crearLinkSuscripcion(params: {
     }
   )
 
+
   const plan = await res.json()
 
   if (!res.ok || !plan.init_point) {

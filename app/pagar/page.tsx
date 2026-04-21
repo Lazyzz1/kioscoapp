@@ -116,7 +116,12 @@ export default function PagarPage() {
             Pago seguro procesado por Mercado Pago. Podés cancelar desde tu perfil en cualquier momento.
           </p>
         </div>
-
+        <p className="text-xs text-gray-500 text-center">
+            Al suscribirte aceptás nuestros{' '}
+            <a href="/terminos" className="text-amber-500 hover:text-amber-400">Términos y Condiciones</a>
+            {' '}y{' '}
+            <a href="/privacidad" className="text-amber-500 hover:text-amber-400">Política de Privacidad</a>
+        </p>
         <button
           onClick={async () => {
             const supabase = createClient()
@@ -125,7 +130,7 @@ export default function PagarPage() {
           }}
           className="text-sm text-gray-500 text-center hover:text-gray-400 transition-colors"
         >
-          Cerrar sesión
+        Cerrar sesión
         </button>
 
       </div>
