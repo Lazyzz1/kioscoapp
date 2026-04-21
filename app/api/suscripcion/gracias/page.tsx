@@ -1,13 +1,13 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-export default function GraciasPage() {
+function GraciasContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const status = searchParams.get('status')
 
-  const exito = status === 'approved' || status === null
+  const exito = status !== 'rejected' && status !== 'cancelled'
   const [segundos, setSegundos] = useState(5)
 
   useEffect(() => {
@@ -24,8 +24,7 @@ export default function GraciasPage() {
     return () => clearInterval(interval)
   }, [exito])
 
-  // Pago fallido o cancelado
-  if (status === 'rejected' || status === 'cancelled') {
+  if (!exito) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-gray-950">
         <div className="w-full max-w-sm text-center flex flex-col items-center gap-6">
@@ -44,16 +43,10 @@ export default function GraciasPage() {
                 : 'Hubo un problema con tu tarjeta. Podés intentar con otro medio de pago.'}
             </p>
           </div>
-          <button
-            onClick={() => router.push('/pagar')}
-            className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-xl transition-all"
-          >
+          <button onClick={() => router.push('/pagar')} className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-xl transition-all">
             Volver a intentar
           </button>
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="text-sm text-gray-500 hover:text-gray-400 transition-colors"
-          >
+          <button onClick={() => router.push('/dashboard')} className="text-sm text-gray-500 hover:text-gray-400 transition-colors">
             Ir al dashboard
           </button>
         </div>
@@ -61,7 +54,6 @@ export default function GraciasPage() {
     )
   }
 
-  // Pago exitoso
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gray-950">
       <div className="w-full max-w-sm text-center flex flex-col items-center gap-6">
@@ -77,21 +69,23 @@ export default function GraciasPage() {
           </p>
         </div>
         <div className="w-full bg-gray-800 rounded-full h-1.5">
-          <div
-            className="bg-amber-500 h-1.5 rounded-full transition-all duration-1000"
-            style={{ width: `${((5 - segundos) / 5) * 100}%` }}
-          />
+          <div className="bg-amber-500 h-1.5 rounded-full transition-all duration-1000" style={{ width: `${((5 - segundos) / 5) * 100}%` }} />
         </div>
         <p className="text-gray-500 text-sm">
           Redirigiendo al dashboard en <span className="text-amber-400 font-medium">{segundos}</span> segundos...
         </p>
-        <button
-          onClick={() => router.push('/dashboard')}
-          className="text-sm text-amber-500 hover:text-amber-400 transition-colors underline underline-offset-2"
-        >
+        <button onClick={() => router.push('/dashboard')} className="text-sm text-amber-500 hover:text-amber-400 transition-colors underline underline-offset-2">
           Ir ahora
         </button>
       </div>
     </div>
+  )
+}
+
+export default function GraciasPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-950" />}>
+      <GraciasContent />
+    </Suspense>
   )
 }
