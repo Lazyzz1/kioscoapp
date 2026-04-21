@@ -723,6 +723,18 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
             </Button>
           </div>
 
+          {/* Botón carrito — modo empleado */}
+          <Button
+            onClick={() => { setCarritoItems([]); setCarritoOpen(true) }}
+            variant="outline"
+            className="w-full h-12 border-border text-foreground gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-1.5 6h11M10 21a1 1 0 100-2 1 1 0 000 2zm7 0a1 1 0 100-2 1 1 0 000 2z"/>
+            </svg>
+            Nueva venta (varios productos)
+          </Button>
+
           {/* Historial del día — solo descripción y categoría, sin montos */}
           <Card className="p-4 bg-card border-border">
             <h2 className="text-base font-semibold text-foreground mb-4">Movimientos de hoy</h2>
