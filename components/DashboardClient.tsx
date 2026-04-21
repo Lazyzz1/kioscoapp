@@ -138,6 +138,65 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
   const [cancelando, setCancelando] = useState(false)
   const [cancelError, setCancelError] = useState('')
 
+  // ─── Carrito (venta múltiple) ─────────────────────────
+  interface ItemCarrito { id: string; descripcion: string; precio: number; cantidad: number; categoria: string }
+  const [carritoOpen, setCarritoOpen] = useState(false)
+  const [carritoItems, setCarritoItems] = useState<ItemCarrito[]>([])
+  const [carritoDesc, setCarritoDesc] = useState("")
+  const [carritoPrecio, setCarritoPrecio] = useState("")
+  const [carritoCantidad, setCarritoCantidad] = useState(1)
+  const [carritoCategoria, setCarritoCategoria] = useState("")
+  const [savingCarrito, setSavingCarrito] = useState(false)
+
+  const carritoTotal = carritoItems.reduce((a, i) => a + i.precio * i.cantidad, 0)
+
+  function agregarAlCarrito() {
+    const precio = parseFloat(carritoPrecio) || 0
+    if (!carritoDesc.trim() || precio <= 0) return
+    setCarritoItems(prev => {
+      const key = carritoDesc.trim().toLowerCase()
+      const existe = prev.findIndex(i => i.descripcion.toLowerCase() === key && i.categoria === carritoCategoria)
+      if (existe >= 0) {
+        return prev.map((i, idx) => idx === existe ? { ...i, cantidad: i.cantidad + carritoCantidad } : i)
+      }
+      return [...prev, { id: Math.random().toString(36).slice(2), descripcion: carritoDesc.trim(), precio, cantidad: carritoCantidad, categoria: carritoCategoria }]
+    })
+    setCarritoDesc("")
+    setCarritoPrecio("")
+    setCarritoCantidad(1)
+    setCarritoCategoria("")
+  }
+
+  async function cobrarCarrito() {
+    if (carritoItems.length === 0) return
+    setSavingCarrito(true)
+    try {
+      const resultados = await Promise.all(
+        carritoItems.map(item =>
+          fetch("/api/movimientos", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              tipo: "ingreso",
+              descripcion: item.descripcion,
+              precio_unitario: item.precio,
+              cantidad: item.cantidad,
+              monto: item.precio * item.cantidad,
+              es_promo: false,
+              categoria: item.categoria || null,
+            }),
+          }).then(r => r.json())
+        )
+      )
+      const nuevos = resultados.map(r => r.movimiento).filter(Boolean)
+      setMovimientos(prev => [...nuevos, ...prev])
+      setCarritoItems([])
+      setCarritoOpen(false)
+    } finally {
+      setSavingCarrito(false)
+    }
+  }
+
   const hoy = new Date()
   const meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]
 
@@ -908,6 +967,18 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
           </Button>
         </div>
 
+        {/* Botón carrito */}
+        <Button
+          onClick={() => { setCarritoItems([]); setCarritoOpen(true) }}
+          variant="outline"
+          className="w-full h-12 border-border text-foreground gap-2"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-1.5 6h11M10 21a1 1 0 100-2 1 1 0 000 2zm7 0a1 1 0 100-2 1 1 0 000 2z"/>
+          </svg>
+          Nueva venta (varios productos)
+        </Button>
+
         {/* Historial agrupado del mes + navegación de meses */}
         <Card className="p-4 bg-card border-border">
           {/* Navegador de mes */}
@@ -1526,6 +1597,104 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
                 {cancelando ? 'Cancelando...' : 'Sí, cancelar'}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Modal CARRITO ─────────────────────────────────── */}
+      <Dialog open={carritoOpen} onOpenChange={v => { setCarritoOpen(v); if (!v) setCarritoItems([]) }}>
+        <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-md rounded-2xl bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-foreground">Nueva venta</DialogTitle>
+            <button onClick={() => setCarritoOpen(false)} className="absolute right-4 top-4 text-muted-foreground hover:text-foreground">
+              <X className="h-5 w-5" />
+            </button>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            {/* Formulario agregar producto */}
+            <div className="bg-secondary/50 rounded-xl p-3 space-y-3">
+              <p className="text-xs font-medium text-muted-foreground">Agregar producto</p>
+              <Input
+                placeholder="Producto (ej: Coca Cola 500ml)"
+                value={carritoDesc}
+                onChange={e => setCarritoDesc(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && agregarAlCarrito()}
+                className="h-11 bg-input border-border text-sm"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    placeholder="Precio"
+                    value={carritoPrecio}
+                    onChange={e => setCarritoPrecio(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && agregarAlCarrito()}
+                    className="h-11 pl-7 bg-input border-border text-sm"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setCarritoCantidad(c => Math.max(1, c - 1))} className="w-9 h-9 rounded-lg border border-border flex items-center justify-center text-foreground hover:bg-secondary">
+                    <Minus className="h-4 w-4" />
+                  </button>
+                  <span className="text-base font-bold text-foreground w-6 text-center">{carritoCantidad}</span>
+                  <button onClick={() => setCarritoCantidad(c => c + 1)} className="w-9 h-9 rounded-lg border border-border flex items-center justify-center text-foreground hover:bg-secondary">
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              {/* Categorías */}
+              <div className="flex flex-wrap gap-1.5">
+                {CATEGORIAS_INGRESO.map(cat => (
+                  <button key={cat} type="button" onClick={() => setCarritoCategoria(carritoCategoria === cat ? "" : cat)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${carritoCategoria === cat ? "bg-primary text-primary-foreground border-primary" : "bg-secondary text-muted-foreground border-border"}`}>
+                    {cat}
+                  </button>
+                ))}
+              </div>
+              <Button onClick={agregarAlCarrito} disabled={!carritoDesc.trim() || !carritoPrecio} className="w-full h-10 bg-success hover:bg-success/90 text-success-foreground">
+                <Plus className="h-4 w-4 mr-1" /> Agregar
+              </Button>
+            </div>
+
+            {/* Lista del carrito */}
+            {carritoItems.length > 0 && (
+              <div className="space-y-1 max-h-52 overflow-y-auto pr-1">
+                {carritoItems.map(item => (
+                  <div key={item.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate capitalize">{item.descripcion}</p>
+                      <p className="text-xs text-muted-foreground">{item.cantidad}x · {formatMoney(item.precio)}{item.categoria ? ` · ${item.categoria}` : ""}</p>
+                    </div>
+                    <div className="flex items-center gap-2 ml-2 shrink-0">
+                      <p className="text-sm font-semibold text-success">{formatMoney(item.precio * item.cantidad)}</p>
+                      <button onClick={() => setCarritoItems(prev => prev.filter(i => i.id !== item.id))} className="p-1 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Total y cobrar */}
+            {carritoItems.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-success/10">
+                  <span className="text-sm font-medium text-foreground">{carritoItems.length} {carritoItems.length === 1 ? "producto" : "productos"}</span>
+                  <span className="text-xl font-bold text-success">{formatMoney(carritoTotal)}</span>
+                </div>
+                <Button onClick={cobrarCarrito} disabled={savingCarrito} className="w-full h-12 bg-success hover:bg-success/90 text-success-foreground text-base font-semibold">
+                  {savingCarrito ? "Guardando..." : `Cobrar ${formatMoney(carritoTotal)}`}
+                </Button>
+              </div>
+            )}
+
+            {carritoItems.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-2">Agregá productos para armar la venta</p>
+            )}
           </div>
         </DialogContent>
       </Dialog>
