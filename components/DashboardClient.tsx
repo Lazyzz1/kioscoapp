@@ -907,9 +907,74 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
           </Button>
         </div>
 
-        {/* Historial */}
+        {/* Historial agrupado del mes */}
         <Card className="p-4 bg-card border-border">
-          <h2 className="text-base font-semibold text-foreground mb-4">Movimientos recientes</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-semibold text-foreground">Movimientos del mes</h2>
+            {resumen.count > 0 && (
+              <button
+                onClick={() => {
+                  import("@/lib/exportPDF").then(({ exportarResumenPDF }) => {
+                    exportarResumenPDF(movimientos, perfil.nombre_negocio, hoy.getMonth(), hoy.getFullYear())
+                  })
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-border text-muted-foreground hover:text-foreground rounded-xl text-xs font-medium transition-colors"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                </svg>
+                Exportar PDF
+              </button>
+            )}
+          </div>
+          {movimientos.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">Todavía no hay movimientos este mes</p>
+          ) : (() => {
+            // Agrupar movimientos del mes por producto (case-insensitive)
+            const delMesHoy = movimientos.filter(m => {
+              const d = new Date(m.fecha)
+              return d.getMonth() === hoy.getMonth() && d.getFullYear() === hoy.getFullYear()
+            })
+            const mapa: Record<string, { descripcion: string; tipo: "ingreso"|"gasto"; cantidad: number; monto: number; categoria?: string; ids: string[] }> = {}
+            delMesHoy.forEach(m => {
+              const key = `${m.tipo}__${(m.descripcion ?? "").toLowerCase().trim()}`
+              if (!mapa[key]) mapa[key] = { descripcion: m.descripcion ?? "", tipo: m.tipo, cantidad: 0, monto: 0, categoria: m.categoria ?? undefined, ids: [] }
+              mapa[key].cantidad += m.cantidad
+              mapa[key].monto += m.monto
+              mapa[key].ids.push(m.id)
+            })
+            const agrupados = Object.values(mapa).sort((a, b) => b.monto - a.monto)
+            return (
+              <div className="space-y-1">
+                {agrupados.map((g, i) => (
+                  <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`p-2 rounded-lg shrink-0 ${g.tipo === "ingreso" ? "bg-success/10" : "bg-destructive/10"}`}>
+                        {g.tipo === "ingreso"
+                          ? <TrendingUp className="h-4 w-4 text-success" />
+                          : <TrendingDown className="h-4 w-4 text-destructive" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate capitalize">{g.descripcion}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {g.cantidad > 1 ? `${g.cantidad} unidades` : "1 unidad"}
+                          {g.categoria ? ` · ${g.categoria}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <p className={`text-sm font-semibold ml-2 shrink-0 ${g.tipo === "ingreso" ? "text-success" : "text-destructive"}`}>
+                      {g.tipo === "ingreso" ? "+" : "-"}{formatMoney(g.monto)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
+        </Card>
+
+        {/* Últimos movimientos — para editar/eliminar */}
+        <Card className="p-4 bg-card border-border">
+          <h2 className="text-base font-semibold text-foreground mb-4">Últimos registros</h2>
           {movimientos.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">Todavía no hay movimientos</p>
           ) : (
@@ -923,7 +988,7 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
                         : <TrendingDown className="h-4 w-4 text-destructive" />}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{mov.descripcion}</p>
+                      <p className="text-sm font-medium text-foreground truncate capitalize">{mov.descripcion}</p>
                       <p className="text-xs text-muted-foreground">
                         {mov.cantidad > 1 && `${mov.cantidad}x · `}
                         {fmtFecha(mov.fecha)}
@@ -932,25 +997,15 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
                       </p>
                     </div>
                   </div>
-
                   <div className="flex items-center gap-2 ml-2 shrink-0">
                     <p className={`text-sm font-semibold ${mov.tipo === "ingreso" ? "text-success" : "text-destructive"}`}>
                       {mov.tipo === "ingreso" ? "+" : "-"}{formatMoney(mov.monto)}
                     </p>
-                    {/* Botones editar / eliminar */}
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => handleOpenEdit(mov)}
-                        className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-                        title="Editar"
-                      >
+                      <button onClick={() => handleOpenEdit(mov)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Editar">
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
-                      <button
-                        onClick={() => handleOpenDelete(mov)}
-                        className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                        title="Eliminar"
-                      >
+                      <button onClick={() => handleOpenDelete(mov)} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="Eliminar">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
@@ -960,23 +1015,6 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
             </div>
           )}
         </Card>
-        
-        {/* Botón exportar Excel — solo aparece si hay movimientos del mes */}
-        {resumen.count > 0 && (
-          <button
-            onClick={() => {
-              import('@/lib/exportExcel').then(({ exportarResumenMensual }) => {
-                exportarResumenMensual(movimientos, perfil.nombre_negocio, hoy.getMonth(), hoy.getFullYear())
-              })
-            }}
-            className="w-full py-3 bg-green-700 hover:bg-green-800 text-white text-sm font-medium rounded-xl transition-all flex items-center justify-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-            </svg>
-            Exportar resumen {meses[hoy.getMonth()]} a Excel
-          </button>
-        )}    
 
         {/* Top 5 */}
         <Card className="p-4 bg-card border-border">
