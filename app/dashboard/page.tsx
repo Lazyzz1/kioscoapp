@@ -9,9 +9,9 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Primer día del mes anterior — así tenemos datos para la comparación
+  // Cargar 6 meses atrás para poder navegar el historial
   const hoy = new Date()
-  const primerDiaMesAnterior = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1)
+  const desde = new Date(hoy.getFullYear(), hoy.getMonth() - 5, 1)
     .toISOString()
     .split('T')[0]
 
@@ -21,13 +21,12 @@ export default async function DashboardPage() {
       .from('movimientos')
       .select('*')
       .eq('user_id', user.id)
-      .gte('fecha', primerDiaMesAnterior)
+      .gte('fecha', desde)
       .order('fecha', { ascending: false }),
   ])
 
   if (!perfil) redirect('/login')
 
-  // ✅ Chequeo de trial / suscripción — redirige a /pagar si venció
   const ahora = new Date()
   const trialVigente = perfil.trial_ends_at && new Date(perfil.trial_ends_at) > ahora
   const planVigente = perfil.plan_expires_at && new Date(perfil.plan_expires_at) > ahora

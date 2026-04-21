@@ -141,16 +141,21 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
   const hoy = new Date()
   const meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]
 
-  // ─── Resumen del mes ─────────────────────────────────────
+  // ─── Navegación de meses ─────────────────────────────
+  const [mesOffset, setMesOffset] = useState(0) // 0 = mes actual, -1 = mes anterior
+  const mesFiltro = new Date(hoy.getFullYear(), hoy.getMonth() + mesOffset, 1)
+  const esMesActual = mesOffset === 0
+
+  // ─── Resumen del mes (respeta mesOffset) ─────────────────
   const resumen = useMemo(() => {
     const delMes = movimientos.filter(m => {
       const d = new Date(m.fecha)
-      return d.getMonth() === hoy.getMonth() && d.getFullYear() === hoy.getFullYear()
+      return d.getMonth() === mesFiltro.getMonth() && d.getFullYear() === mesFiltro.getFullYear()
     })
     const ingresos = delMes.filter(m => m.tipo === "ingreso").reduce((a, m) => a + m.monto, 0)
     const gastos = delMes.filter(m => m.tipo === "gasto").reduce((a, m) => a + m.monto, 0)
     return { ingresos, gastos, neto: ingresos - gastos, count: delMes.length }
-  }, [movimientos])
+  }, [movimientos, mesOffset])
 
   // ─── Resumen mes anterior ────────────────────────────────
   const resumenAnterior = useMemo(() => {
@@ -182,8 +187,8 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
         return (
           m.tipo === "ingreso" &&
           m.descripcion &&
-          d.getMonth() === hoy.getMonth() &&
-          d.getFullYear() === hoy.getFullYear()
+          d.getMonth() === mesFiltro.getMonth() &&
+          d.getFullYear() === mesFiltro.getFullYear()
         )
       })
       .forEach(m => {
@@ -193,7 +198,7 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
         conteo[key].monto += m.monto
       })
     return Object.values(conteo).sort((a, b) => b.cantidad - a.cantidad).slice(0, 5)
-  }, [movimientos])
+  }, [movimientos, mesOffset])
 
   // ─── Alertas ─────────────────────────────────────────────
   const alertas = useMemo(() => {
@@ -766,11 +771,7 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
           </div>
         )}
 
-        {/* Período */}
-        <div className="flex items-center justify-center gap-2 text-muted-foreground">
-          <Clock className="h-4 w-4" />
-          <span className="text-sm font-medium">{meses[hoy.getMonth()]} {hoy.getFullYear()}</span>
-        </div>
+        {/* Período — lo muestra el navegador de meses en las cards */}
 
         {/* Card principal */}
         <Card className={`p-6 border-0 ${esGanancia ? "bg-success/10" : "bg-destructive/10"}`}>
@@ -907,15 +908,36 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
           </Button>
         </div>
 
-        {/* Historial agrupado del mes */}
+        {/* Historial agrupado del mes + navegación de meses */}
         <Card className="p-4 bg-card border-border">
-          <div className="flex items-center justify-between mb-4">
+          {/* Navegador de mes */}
+          <div className="flex items-center justify-between mb-3">
+            <button onClick={() => setMesOffset(o => o - 1)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+              <ArrowDown className="h-4 w-4 rotate-90" />
+            </button>
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-foreground">
+                {meses[mesFiltro.getMonth()]} {mesFiltro.getFullYear()}
+                {esMesActual && <span className="ml-1.5 text-xs text-muted-foreground">(este mes)</span>}
+              </span>
+            </div>
+            <button
+              onClick={() => setMesOffset(o => Math.min(0, o + 1))}
+              disabled={esMesActual}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors disabled:opacity-30"
+            >
+              <ArrowDown className="h-4 w-4 -rotate-90" />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-semibold text-foreground">Movimientos del mes</h2>
             {resumen.count > 0 && (
               <button
                 onClick={() => {
                   import("@/lib/exportPDF").then(({ exportarResumenPDF }) => {
-                    exportarResumenPDF(movimientos, perfil.nombre_negocio, hoy.getMonth(), hoy.getFullYear())
+                    exportarResumenPDF(movimientos, perfil.nombre_negocio, mesFiltro.getMonth(), mesFiltro.getFullYear())
                   })
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-border text-muted-foreground hover:text-foreground rounded-xl text-xs font-medium transition-colors"
@@ -927,32 +949,30 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
               </button>
             )}
           </div>
-          {movimientos.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">Todavía no hay movimientos este mes</p>
-          ) : (() => {
-            // Agrupar movimientos del mes por producto (case-insensitive)
-            const delMesHoy = movimientos.filter(m => {
+
+          {(() => {
+            const delMesFiltrado = movimientos.filter(m => {
               const d = new Date(m.fecha)
-              return d.getMonth() === hoy.getMonth() && d.getFullYear() === hoy.getFullYear()
+              return d.getMonth() === mesFiltro.getMonth() && d.getFullYear() === mesFiltro.getFullYear()
             })
-            const mapa: Record<string, { descripcion: string; tipo: "ingreso"|"gasto"; cantidad: number; monto: number; categoria?: string; ids: string[] }> = {}
-            delMesHoy.forEach(m => {
+            if (delMesFiltrado.length === 0) return (
+              <p className="text-sm text-muted-foreground text-center py-4">Sin movimientos en {meses[mesFiltro.getMonth()]}</p>
+            )
+            const mapa: Record<string, { descripcion: string; tipo: "ingreso"|"gasto"; cantidad: number; monto: number; categoria?: string }> = {}
+            delMesFiltrado.forEach(m => {
               const key = `${m.tipo}__${(m.descripcion ?? "").toLowerCase().trim()}`
-              if (!mapa[key]) mapa[key] = { descripcion: m.descripcion ?? "", tipo: m.tipo, cantidad: 0, monto: 0, categoria: m.categoria ?? undefined, ids: [] }
+              if (!mapa[key]) mapa[key] = { descripcion: m.descripcion ?? "", tipo: m.tipo, cantidad: 0, monto: 0, categoria: m.categoria ?? undefined }
               mapa[key].cantidad += m.cantidad
               mapa[key].monto += m.monto
-              mapa[key].ids.push(m.id)
             })
             const agrupados = Object.values(mapa).sort((a, b) => b.monto - a.monto)
             return (
-              <div className="space-y-1">
+              <div className="overflow-y-auto max-h-80 space-y-1 pr-1">
                 {agrupados.map((g, i) => (
                   <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className={`p-2 rounded-lg shrink-0 ${g.tipo === "ingreso" ? "bg-success/10" : "bg-destructive/10"}`}>
-                        {g.tipo === "ingreso"
-                          ? <TrendingUp className="h-4 w-4 text-success" />
-                          : <TrendingDown className="h-4 w-4 text-destructive" />}
+                        {g.tipo === "ingreso" ? <TrendingUp className="h-4 w-4 text-success" /> : <TrendingDown className="h-4 w-4 text-destructive" />}
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-foreground truncate capitalize">{g.descripcion}</p>
@@ -972,48 +992,69 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
           })()}
         </Card>
 
-        {/* Últimos movimientos — para editar/eliminar */}
+        {/* Últimos registros — agrupados, con scroll y editar/eliminar */}
         <Card className="p-4 bg-card border-border">
           <h2 className="text-base font-semibold text-foreground mb-4">Últimos registros</h2>
           {movimientos.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-4">Todavía no hay movimientos</p>
-          ) : (
-            <div className="space-y-1">
-              {movimientos.slice(0, 10).map(mov => (
-                <div key={mov.id} className="flex items-center justify-between py-2 border-b border-border last:border-0 group">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className={`p-2 rounded-lg shrink-0 ${mov.tipo === "ingreso" ? "bg-success/10" : "bg-destructive/10"}`}>
-                      {mov.tipo === "ingreso"
-                        ? <TrendingUp className="h-4 w-4 text-success" />
-                        : <TrendingDown className="h-4 w-4 text-destructive" />}
+          ) : (() => {
+            const delMesFiltrado = movimientos.filter(m => {
+              const d = new Date(m.fecha)
+              return d.getMonth() === mesFiltro.getMonth() && d.getFullYear() === mesFiltro.getFullYear()
+            })
+            const mapa: Record<string, { descripcion: string; tipo: "ingreso"|"gasto"; cantidad: number; monto: number; categoria?: string; movRefs: Movimiento[] }> = {}
+            delMesFiltrado.forEach(m => {
+              const key = `${m.tipo}__${(m.descripcion ?? "").toLowerCase().trim()}`
+              if (!mapa[key]) mapa[key] = { descripcion: m.descripcion ?? "", tipo: m.tipo, cantidad: 0, monto: 0, categoria: m.categoria ?? undefined, movRefs: [] }
+              mapa[key].cantidad += m.cantidad
+              mapa[key].monto += m.monto
+              mapa[key].movRefs.push(m)
+            })
+            const agrupados = Object.values(mapa).sort((a, b) => {
+              const fa = new Date(b.movRefs[0].fecha).getTime()
+              const fb = new Date(a.movRefs[0].fecha).getTime()
+              return fa - fb
+            })
+            if (agrupados.length === 0) return (
+              <p className="text-sm text-muted-foreground text-center py-4">Sin registros en {meses[mesFiltro.getMonth()]}</p>
+            )
+            return (
+              <div className="overflow-y-auto max-h-80 space-y-1 pr-1">
+                {agrupados.map((g, i) => (
+                  <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0 group">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={`p-2 rounded-lg shrink-0 ${g.tipo === "ingreso" ? "bg-success/10" : "bg-destructive/10"}`}>
+                        {g.tipo === "ingreso" ? <TrendingUp className="h-4 w-4 text-success" /> : <TrendingDown className="h-4 w-4 text-destructive" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate capitalize">{g.descripcion}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {g.cantidad > 1 ? `${g.cantidad} unidades` : "1 unidad"}
+                          {g.categoria ? ` · ${g.categoria}` : ""}
+                          {` · ${fmtFecha(g.movRefs[0].fecha)}`}
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate capitalize">{mov.descripcion}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {mov.cantidad > 1 && `${mov.cantidad}x · `}
-                        {fmtFecha(mov.fecha)}
-                        {mov.es_promo ? " · promo" : ""}
-                        {mov.categoria ? ` · ${mov.categoria}` : ""}
+                    <div className="flex items-center gap-2 ml-2 shrink-0">
+                      <p className={`text-sm font-semibold ${g.tipo === "ingreso" ? "text-success" : "text-destructive"}`}>
+                        {g.tipo === "ingreso" ? "+" : "-"}{formatMoney(g.monto)}
                       </p>
+                      {g.movRefs.length === 1 && (
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => handleOpenEdit(g.movRefs[0])} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Editar">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button onClick={() => handleOpenDelete(g.movRefs[0])} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="Eliminar">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 ml-2 shrink-0">
-                    <p className={`text-sm font-semibold ${mov.tipo === "ingreso" ? "text-success" : "text-destructive"}`}>
-                      {mov.tipo === "ingreso" ? "+" : "-"}{formatMoney(mov.monto)}
-                    </p>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => handleOpenEdit(mov)} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors" title="Editar">
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button onClick={() => handleOpenDelete(mov)} className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="Eliminar">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )
+          })()}
         </Card>
 
         {/* Top 5 */}
