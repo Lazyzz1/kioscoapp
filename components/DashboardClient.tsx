@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -1154,7 +1153,9 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="promo" className="text-sm text-muted-foreground">Es promo / precio especial</Label>
-                  <Switch id="promo" checked={esPromo} onCheckedChange={setEsPromo} />
+                  <button type="button" onClick={() => setEsPromo(!esPromo)} className={`relative w-12 h-6 rounded-full transition-colors ${esPromo ? 'bg-amber-500' : 'bg-gray-600'}`}>
+                    <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${esPromo ? 'left-7' : 'left-1'}`} />
+                  </button>
                 </div>
                 {esPromo && (
                   <div className="space-y-2">
@@ -1258,7 +1259,9 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="edit-promo" className="text-sm text-muted-foreground">Es promo / precio especial</Label>
-                  <Switch id="edit-promo" checked={editEsPromo} onCheckedChange={setEditEsPromo} />
+                  <button type="button" onClick={() => setEditEsPromo(!editEsPromo)} className={`relative w-12 h-6 rounded-full transition-colors ${editEsPromo ? 'bg-amber-500' : 'bg-gray-600'}`}>
+                    <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${editEsPromo ? 'left-7' : 'left-1'}`} />
+                  </button>
                 </div>
                 {editEsPromo && (
                   <div className="space-y-2">
