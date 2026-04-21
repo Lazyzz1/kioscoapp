@@ -158,7 +158,7 @@ export function exportarResumenPDF(
   }
 
   // ─── Pie de página ───────────────────────────────────────
-  const totalPags = doc.getNumberOfPages()
+  const totalPags = (doc.internal as any).getNumberOfPages()
   for (let i = 1; i <= totalPags; i++) {
     doc.setPage(i)
     doc.setFontSize(7)
