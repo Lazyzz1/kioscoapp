@@ -19,10 +19,10 @@ export async function POST(req: NextRequest) {
   const event = JSON.parse(rawBody)
   console.log('Webhook MP recibido:', event.type, event.data?.id)
 
-  // Solo nos interesan eventos de preapproval (suscripciones)
-  if (event.type !== 'subscription_preapproval') {
-    return NextResponse.json({ ok: true })
-  }
+  const tiposValidos = ['subscription_preapproval', 'subscription_authorized_payment']
+  if (!tiposValidos.includes(event.type)) {
+  return NextResponse.json({ ok: true })
+}
 
   const subscriptionId = event.data?.id
   if (!subscriptionId) return NextResponse.json({ ok: true })
