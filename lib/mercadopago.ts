@@ -10,24 +10,30 @@ export async function crearLinkSuscripcion(params: {
   userId: string
   backUrl: string
 }): Promise<string> {
-  // Obtener el init_point del plan directamente — sin crear PreApproval
-  const res = await fetch(
-    `https://api.mercadopago.com/preapproval_plan/${process.env.MP_PLAN_ID}`,
-    {
-      headers: {
-        'Authorization': `Bearer ${process.env.MP_ACCESS_TOKEN}`,
-      },
-    }
-  )
+  const res = await fetch('https://api.mercadopago.com/preapproval', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${process.env.MP_ACCESS_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      preapproval_plan_id: process.env.MP_PLAN_ID,
+      reason: 'KioskoApp mensual',
+      external_reference: params.userId,
+      payer_email: params.userEmail,
+      back_url: params.backUrl,
+      status: 'pending',
+    }),
+  })
 
+  const data = await res.json()
+  console.log('MP crear suscripcion:', JSON.stringify(data))
 
-  const plan = await res.json()
-
-  if (!res.ok || !plan.init_point) {
-    throw new Error(`MP error: ${JSON.stringify(plan)}`)
+  if (!res.ok || !data.init_point) {
+    throw new Error(JSON.stringify(data))
   }
 
-  return plan.init_point
+  return data.init_point
 }
 
 // ─── Cancelar suscripción ────────────────────────────────
