@@ -2,12 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase.server'
 import MercadoPagoConfig, { PreApproval } from 'mercadopago'
 
+
+
 const mpClient = new MercadoPagoConfig({
   accessToken: process.env.MP_ACCESS_TOKEN!,
 })
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text()
+  console.log('RAW BODY:', rawBody.substring(0, 500))
+  console.log('HEADERS:', {
+    'x-signature': req.headers.get('x-signature'),
+    'x-request-id': req.headers.get('x-request-id'),
+    'content-type': req.headers.get('content-type'),
+})
 
   let event: any
   try {
