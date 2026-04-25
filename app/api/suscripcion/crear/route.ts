@@ -1,21 +1,22 @@
-import { NextResponse } from 'next/server'
-import { createServerComponentClient } from '@/lib/supabase.server'
-import { crearLinkSuscripcion } from '@/lib/mercadopago'
+import { createServerComponentClient } from "@/lib/supabase.server";
+import { crearLinkSuscripcion } from "@/lib/mercadopago";
+import { NextResponse } from "next/server";
 
 export async function POST() {
-  const supabase = await createServerComponentClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+  const supabase = await createServerComponentClient();
+  
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (!user || authError) {
+    return NextResponse.json({ error: "No autenticado" }, { status: 401 });
+  }
 
   try {
-    const url = await crearLinkSuscripcion({
-      userEmail: user.email!,
-      userId: user.id,
-      backUrl: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
-    })
-    return NextResponse.json({ url })
-  } catch (e: any) {
-    console.error('MP error:', e)
-    return NextResponse.json({ error: 'Error al crear link de pago' }, { status: 500 })
+    const { init_point } = await crearLinkSuscripcion(
+      user.id,           // ← external_reference
+      user.email ?? ""
+    );
+    return NextResponse.json({ init_point });
+  } catch (err) {
+    return NextResponse.json({ error: "Error al crear suscripción" }, { status: 500 });
   }
 }

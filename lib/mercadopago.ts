@@ -5,32 +5,39 @@ const client = new MercadoPagoConfig({
 })
 
 // ─── Crear link de suscripción para un usuario ───────────
-export async function crearLinkSuscripcion(params: {
-  userEmail: string
-  userId: string
-  backUrl: string
-}): Promise<string> {
-  // Obtener el init_point del plan y agregar external_reference como query param
-  const res = await fetch(
-    `https://api.mercadopago.com/preapproval_plan/${process.env.MP_PLAN_ID}`,
-    {
-      headers: {
-        'Authorization': `Bearer ${process.env.MP_ACCESS_TOKEN}`,
+export async function crearLinkSuscripcion(userId: string, userEmail: string) {
+  const response = await fetch("https://api.mercadopago.com/preapproval", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${process.env.MP_ACCESS_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      reason: "KioskoApp — Suscripción mensual",
+      external_reference: userId,          // ← clave: el userId de Supabase
+      payer_email: userEmail,
+      auto_recurring: {
+        frequency: 1,
+        frequency_type: "months",
+        transaction_amount: 6700,
+        currency_id: "ARS",
       },
-    }
-  )
+      back_url: `${process.env.NEXT_PUBLIC_APP_URL}/suscripcion/gracias`,
+      status: "pending",                   // ← sin esto MP pide card_token
+    }),
+  });
 
-  const plan = await res.json()
-
-  if (!res.ok || !plan.init_point) {
-    throw new Error(`MP error: ${JSON.stringify(plan)}`)
+  if (!response.ok) {
+    const error = await response.json();
+    console.error("MP PreApproval error:", error);
+    throw new Error("No se pudo crear la suscripción en Mercado Pago");
   }
 
-  // Agregar external_reference a la URL para identificar al usuario en el webhook
-  const url = new URL(plan.init_point)
-  url.searchParams.set('external_reference', params.userId)
-
-  return url.toString()
+  const data = await response.json();
+  return {
+    init_point: data.init_point,           // URL a la que redirigís al usuario
+    preapproval_id: data.id,              // guardalo en la sesión si querés
+  };
 }
 
 // ─── Cancelar suscripción ────────────────────────────────

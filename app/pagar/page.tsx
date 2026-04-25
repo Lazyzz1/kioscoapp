@@ -29,8 +29,8 @@ export default function PagarPage() {
     try {
       const res = await fetch('/api/suscripcion/crear', { method: 'POST' })
       const data = await res.json()
-      if (data.url) {
-        window.location.href = data.url
+      if (data.init_point) {
+        window.location.href = data.init_point
       } else {
         setError('No se pudo iniciar el pago. Intentá de nuevo.')
       }

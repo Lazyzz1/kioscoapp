@@ -1,112 +1,63 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase.server'
-import MercadoPagoConfig, { PreApproval } from 'mercadopago'
-
-
-
-const mpClient = new MercadoPagoConfig({
-  accessToken: process.env.MP_ACCESS_TOKEN!,
-})
+import { createAdminClient } from "@/lib/supabase.server";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
-  const rawBody = await req.text()
-  console.log('RAW BODY:', rawBody.substring(0, 500))
-  console.log('HEADERS:', {
-    'x-signature': req.headers.get('x-signature'),
-    'x-request-id': req.headers.get('x-request-id'),
-    'content-type': req.headers.get('content-type'),
-})
+  const body = await req.json();
+  const supabase = createAdminClient();
 
-  let event: any
-  try {
-    event = JSON.parse(rawBody)
-  } catch {
-    return NextResponse.json({ error: 'Body inválido' }, { status: 400 })
-  }
+  // MP manda distintos tipos de eventos
+  const topic = body.type || body.topic;
+  const resourceId = body.data?.id || body.id;
 
-  console.log('Webhook MP recibido:', event.type, event.data?.id)
-
-  // Aceptar eventos de suscripción
-  const tiposValidos = ['subscription_preapproval', 'subscription_authorized_payment']
-  if (!tiposValidos.includes(event.type)) {
-    return NextResponse.json({ ok: true })
-  }
-
-  const subscriptionId = event.data?.id
-  if (!subscriptionId) return NextResponse.json({ ok: true })
-
-  // Ignorar IDs de prueba de simulación de MP
-  if (subscriptionId === '123456' || subscriptionId === 'TEST') {
-    console.log('Webhook: ID de simulación ignorado')
-    return NextResponse.json({ ok: true })
-  }
+  if (!resourceId) return NextResponse.json({ ok: true });
 
   try {
-    // Obtener detalles de la suscripción desde MP
-    let sub: any
-    try {
-      const preApproval = new PreApproval(mpClient)
-      sub = await preApproval.get({ id: subscriptionId })
-    } catch (e: any) {
-      console.error('No se pudo obtener suscripción de MP:', subscriptionId, e?.message)
-      return NextResponse.json({ ok: true })
+    if (topic === "subscription_preapproval" || topic === "preapproval") {
+      // Fetch del preapproval para obtener sus datos completos
+      const mpRes = await fetch(
+        `https://api.mercadopago.com/preapproval/${resourceId}`,
+        {
+          headers: { Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN}` },
+        }
+      );
+      const preapproval = await mpRes.json();
+
+      const userId = preapproval.external_reference; // ← el UUID de Supabase
+      const status = preapproval.status;             // "authorized" | "paused" | "cancelled"
+      const mpEmail = preapproval.payer_email;
+
+      if (!userId) {
+        console.warn("Webhook sin external_reference:", resourceId);
+        return NextResponse.json({ ok: true });
+      }
+
+      if (status === "authorized") {
+        // Pago exitoso → activar plan
+        await supabase
+          .from("perfiles")
+          .update({
+            plan: "pagado",
+            plan_activated_at: new Date().toISOString(),
+            plan_expires_at: new Date(
+              Date.now() + 31 * 24 * 60 * 60 * 1000
+            ).toISOString(),
+            mp_subscription_id: preapproval.id,
+            mp_payer_email: mpEmail,
+          })
+          .eq("id", userId);
+
+      } else if (status === "cancelled" || status === "paused") {
+        // Cancelación/pausa → revertir a trial/cancelled
+        await supabase
+          .from("perfiles")
+          .update({ plan: "cancelled" })
+          .eq("id", userId);
+      }
     }
-
-    if (!sub) return NextResponse.json({ ok: true })
-
-    console.log('Suscripción MP:', sub.status, 'payer:', sub.payer_email, 'external_ref:', sub.external_reference)
-
-    const supabase = createAdminClient()
-    const ahora = new Date()
-
-    // Intentar obtener userId por external_reference primero (más confiable)
-    // Si no, buscar por email
-    let userId: string | null = sub.external_reference ?? null
-
-    if (!userId && sub.payer_email) {
-      const { data: { users } } = await supabase.auth.admin.listUsers()
-      const user = users.find((u: { id: string; email?: string }) => u.email === sub.payer_email)
-      userId = user?.id ?? null
-    }
-
-    if (!userId) {
-      console.error('No se encontró usuario para la suscripción:', subscriptionId)
-      return NextResponse.json({ ok: true })
-    }
-
-    if (sub.status === 'authorized') {
-      const expira = new Date(ahora)
-      expira.setDate(expira.getDate() + 32)
-
-      await supabase
-        .from('perfiles')
-        .update({
-          plan: 'pagado',
-          mp_subscription_id: subscriptionId,
-          mp_payer_email: sub.payer_email ?? null,
-          plan_activated_at: ahora.toISOString(),
-          plan_expires_at: expira.toISOString(),
-        })
-        .eq('id', userId)
-
-      console.log(`✅ Suscripción activada: user=${userId} expira=${expira.toISOString()}`)
-
-    } else if (sub.status === 'cancelled' || sub.status === 'paused') {
-      await supabase
-        .from('perfiles')
-        .update({
-          plan: 'cancelled',
-          plan_expires_at: ahora.toISOString(),
-        })
-        .eq('id', userId)
-
-      console.log('❌ Suscripción cancelada: user=' + userId + ' status=' + sub.status)
-    }
-
-    return NextResponse.json({ ok: true })
-
-  } catch (e: any) {
-    console.error('Webhook error:', e?.message ?? e)
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
+  } catch (err) {
+    console.error("Webhook error:", err);
   }
+
+  // Siempre respondé 200 a MP o va a reintentar
+  return NextResponse.json({ ok: true });
 }
