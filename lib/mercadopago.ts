@@ -15,6 +15,7 @@ export async function crearLinkSuscripcion(userId: string, userEmail: string) {
     body: JSON.stringify({
       reason: "KioskoApp — Suscripción mensual",
       external_reference: userId,          // ← clave: el userId de Supabase
+      payer_email: userEmail,
       auto_recurring: {
         frequency: 1,
         frequency_type: "months",
