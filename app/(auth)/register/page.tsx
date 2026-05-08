@@ -42,7 +42,13 @@ export default function RegisterPage() {
       return
     }
 
-    // Esperamos a que la sesión esté guardada en las cookies
+    // Enviar email de bienvenida (sin await para no bloquear)
+    fetch("/api/auth/bienvenida", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: form.email, nombreNegocio: form.nombre }),
+    }).catch(console.error);
+
     await supabase.auth.getSession()
     window.location.replace('/dashboard')
   }
