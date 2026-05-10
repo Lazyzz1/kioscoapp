@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/trial-venciendo",
+      "schedule": "0 12 * * *"
+    }
+  ]
+}
