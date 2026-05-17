@@ -136,6 +136,12 @@ export default function RegisterPage() {
           ¿Ya tenés cuenta?{' '}
           <Link href="/login" className="text-amber-500 hover:text-amber-400 font-medium">Iniciar sesión</Link>
         </p>
+        <p className="text-center text-xs text-gray-600 mt-2">
+          ¿Problemas para registrarte?{' '}
+          <a href="mailto:kioscoapp404@gmail.com" className="text-amber-500 hover:text-amber-400">
+            kioscoapp404@gmail.com
+          </a>
+        </p>
       </div>
     </div>
   )

@@ -566,7 +566,7 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
     if (res.ok) {
       window.location.href = '/pagar'
     } else {
-      setCancelError('No se pudo cancelar. Contactanos por WhatsApp.')
+      setCancelError('No se pudo cancelar. Contactanos por Correo.')
     }
   } catch {
     setCancelError('Hubo un problema. Intentá de nuevo.')
@@ -1280,6 +1280,12 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
             >
               Cancelar
             </Button>
+            <p className="text-center text-xs text-gray-600 pb-4 mt-2">
+              ¿Necesitás ayuda?{' '}
+              <a href="mailto:kioscoapp404@gmail.com" className="text-amber-500 hover:text-amber-400">
+                kioscoapp404@gmail.com
+              </a>
+            </p>
           </div>
         </Card>
        )}

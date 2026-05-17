@@ -101,6 +101,12 @@ export default function LoginPage() {
           ¿No tenés cuenta?{' '}
           <Link href="/register" className="text-amber-500 hover:text-amber-400 font-medium">Registrate gratis</Link>
         </p>
+        <p className="text-center text-xs text-gray-600 mt-2">
+          ¿Problemas para entrar?{' '}
+          <a href="mailto:kioscoapp404@gmail.com" className="text-amber-500 hover:text-amber-400">
+            kioscoapp404@gmail.com
+          </a>
+        </p>
       </div>
     </div>
   )
