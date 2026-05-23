@@ -297,8 +297,10 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
       if (v.tipo === "sube") {
         lista.push({
           emoji: "📈",
-          texto: `Este mes ganás ${v.pct}% más que ${meses[resumenAnterior.mes]}. ¡Vas bien!`,
-          tipo: "positivo",
+          texto: resumen.neto < 0
+            ? `Mejoraste un ${v.pct}% vs ${meses[resumenAnterior.mes]}, pero seguís en pérdida este mes. Revisá tus gastos.`
+            : `Este mes ganás ${v.pct}% más que ${meses[resumenAnterior.mes]}. ¡Vas bien!`,
+          tipo: resumen.neto < 0 ? "negativo" : "positivo",
         })
       } else if (v.tipo === "baja") {
         lista.push({
@@ -308,7 +310,7 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
         })
       } else {
         lista.push({
-          emoji: "➡️",
+          emoji: "📊",
           texto: `Tu ganancia está igual que el mes pasado.`,
           tipo: "neutro",
         })

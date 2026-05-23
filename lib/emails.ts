@@ -23,7 +23,7 @@ export async function enviarEmailBienvenida(email: string, nombreNegocio: string
           </ul>
         </div>
 
-        <a href="https://kioscoapp-gamma.vercel.app/dashboard" 
+        <a href="https://kioscoapp.com.ar/dashboard" 
            style="display: inline-block; background: #f97316; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
           Ir al Dashboard →
         </a>
@@ -54,7 +54,7 @@ export async function enviarEmailPagoConfirmado(email: string, nombreNegocio: st
           <p style="margin: 8px 0 0; color: #aaaaaa; font-size: 14px;">Próximo cobro: <strong style="color: #cccccc;">${fechaVencimiento}</strong></p>
         </div>
 
-        <a href="https://kioscoapp-gamma.vercel.app/dashboard" 
+        <a href="https://kioscoapp.com.ar/dashboard" 
            style="display: inline-block; background: #22c55e; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
           Ir al Dashboard →
         </a>
@@ -82,7 +82,7 @@ export async function enviarEmailTrialPorVencer(email: string, nombreNegocio: st
           <p style="margin: 8px 0 0; color: #aaaaaa; font-size: 13px;">Cancelá cuando quieras, sin permanencia.</p>
         </div>
 
-        <a href="https://kioscoapp-gamma.vercel.app/pagar" 
+        <a href="https://kioscoapp.com.ar/pagar" 
            style="display: inline-block; background: #f97316; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
           Suscribirme ahora →
         </a>
