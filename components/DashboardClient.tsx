@@ -1363,7 +1363,7 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
                   <button
                     key={cat}
                     type="button"
-                    onClick={() => { setCategoria(cat); if (cat !== "Otra") setCategoriaCustom("") }}
+                    onClick={() => { const nueva = categoria === cat ? "" : cat; setCategoria(nueva); if (nueva !== "Otra") setCategoriaCustom("") }}
                     className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
                       categoria === cat
                         ? "bg-primary text-primary-foreground border-primary"
@@ -1469,7 +1469,7 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
                   <button
                     key={cat}
                     type="button"
-                    onClick={() => { setEditCategoria(cat); if (cat !== "Otra") setEditCategoriaCustom("") }}
+                    onClick={() => { const nueva = editCategoria === cat ? "" : cat; setEditCategoria(nueva); if (nueva !== "Otra") setEditCategoriaCustom("") }}
                     className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors ${
                       editCategoria === cat
                         ? "bg-primary text-primary-foreground border-primary"
