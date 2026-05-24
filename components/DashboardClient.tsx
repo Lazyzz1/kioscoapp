@@ -20,9 +20,18 @@ import { Perfil, Movimiento, diasRestantesTrial } from "@/types"
 
 const LINK_DONACION = "https://link.mercadopago.com.ar/turnosbots"
 
+interface CategoriaCustom {
+  id: string
+  user_id: string
+  nombre: string
+  tipo: "ingreso" | "gasto"
+  created_at: string
+}
+
 interface Props {
   perfil: Perfil
   movimientosIniciales: Movimiento[]
+  categoriasCustomIniciales: CategoriaCustom[]
 }
 
 const formatMoney = (n: number) =>
@@ -75,9 +84,10 @@ function PinInputs({
   )
 }
 
-export default function DashboardClient({ perfil, movimientosIniciales }: Props) {
+export default function DashboardClient({ perfil, movimientosIniciales, categoriasCustomIniciales }: Props) {
   const router = useRouter()
   const [movimientos, setMovimientos] = useState<Movimiento[]>(movimientosIniciales)
+  const [categoriasCustom, setCategoriasCustom] = useState<CategoriaCustom[]>(categoriasCustomIniciales)
 
   // ─── Estado modal CREAR ───────────────────────────────────
   const [modalOpen, setModalOpen] = useState(false)
@@ -89,6 +99,8 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
   const [totalLibre, setTotalLibre] = useState("")
   const [categoria, setCategoria] = useState("")
   const [categoriaCustom, setCategoriaCustom] = useState("")
+  const [nuevaCatInput, setNuevaCatInput] = useState("")
+  const [mostrarNuevaCat, setMostrarNuevaCat] = useState(false)
   const [saving, setSaving] = useState(false)
 
   // ─── Estado modal EDITAR ──────────────────────────────────
@@ -101,6 +113,8 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
   const [editTotalLibre, setEditTotalLibre] = useState("")
   const [editCategoria, setEditCategoria] = useState("")
   const [editCategoriaCustom, setEditCategoriaCustom] = useState("")
+  const [nuevaCatInputEdit, setNuevaCatInputEdit] = useState("")
+  const [mostrarNuevaCatEdit, setMostrarNuevaCatEdit] = useState(false)
   const [savingEdit, setSavingEdit] = useState(false)
 
   // ─── Estado modal CONFIRMAR ELIMINAR ─────────────────────
@@ -236,6 +250,17 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
     const pct = Math.round(((actual - anterior) / Math.abs(anterior)) * 100)
     return { pct: Math.abs(pct), tipo: pct > 0 ? "sube" as const : pct < 0 ? "baja" as const : "igual" as const }
   }
+
+  // ─── Categorías dinámicas (fijas + custom del usuario) ───
+  const categoriasIngreso = useMemo(() => [
+    ...CATEGORIAS_INGRESO,
+    ...categoriasCustom.filter(c => c.tipo === "ingreso").map(c => c.nombre)
+  ], [categoriasCustom])
+
+  const categoriasGasto = useMemo(() => [
+    ...CATEGORIAS_GASTO,
+    ...categoriasCustom.filter(c => c.tipo === "gasto").map(c => c.nombre)
+  ], [categoriasCustom])
 
   // ─── Top 5 productos ─────────────────────────────────────
   const top5 = useMemo(() => {
@@ -446,6 +471,8 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
     setTotalLibre("")
     setCategoria("")
     setCategoriaCustom("")
+    setNuevaCatInput("")
+    setMostrarNuevaCat(false)
     setModalOpen(true)
   }
 
@@ -484,7 +511,7 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
     const montoCalculado = (mov.precio_unitario ?? 0) * mov.cantidad
     setEditTotalLibre(mov.es_promo && mov.monto !== montoCalculado ? mov.monto.toString() : "")
     // Cargar categoría: si es una de la lista fija la seleccionamos, si no va a "Otra" + custom
-    const cats = mov.tipo === "ingreso" ? CATEGORIAS_INGRESO : CATEGORIAS_GASTO
+    const cats = mov.tipo === "ingreso" ? categoriasIngreso : categoriasGasto
     if (!mov.categoria) {
       setEditCategoria("")
       setEditCategoriaCustom("")
@@ -495,6 +522,8 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
       setEditCategoria("Otra")
       setEditCategoriaCustom(mov.categoria)
     }
+    setNuevaCatInputEdit("")
+    setMostrarNuevaCatEdit(false)
     setEditModalOpen(true)
   }
 
@@ -557,6 +586,24 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
       setTimeout(() => setSugerenciaEnviada(false), 4000)
     }
     setEnviandoSugerencia(false)
+  }
+
+  const handleAgregarCategoria = async (tipo: "ingreso" | "gasto", nombre: string, setNombre: (v: string) => void, setMostrar: (v: boolean) => void) => {
+    const nombreTrim = nombre.trim()
+    if (!nombreTrim) return
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data, error } = await supabase
+      .from("categorias_custom")
+      .insert({ user_id: user.id, nombre: nombreTrim, tipo })
+      .select()
+      .single()
+    if (!error && data) {
+      setCategoriasCustom(prev => [...prev, data])
+      setNombre("")
+      setMostrar(false)
+    }
   }
 
   //
@@ -1359,7 +1406,7 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
             <div className="space-y-2">
               <Label className="text-sm text-muted-foreground">Categoría <span className="text-xs">(opcional)</span></Label>
               <div className="flex flex-wrap gap-2">
-                {(tipoMovimiento === "ingreso" ? CATEGORIAS_INGRESO : CATEGORIAS_GASTO).map(cat => (
+                {(tipoMovimiento === "ingreso" ? categoriasIngreso : categoriasGasto).map(cat => (
                   <button
                     key={cat}
                     type="button"
@@ -1373,6 +1420,25 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
                     {cat}
                   </button>
                 ))}
+                {mostrarNuevaCat ? (
+                  <div className="flex gap-2 items-center w-full mt-1">
+                    <input
+                      className="h-8 px-2 text-xs rounded-xl border border-border bg-input flex-1"
+                      placeholder="Nombre de categoría..."
+                      value={nuevaCatInput}
+                      onChange={e => setNuevaCatInput(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && handleAgregarCategoria(tipoMovimiento, nuevaCatInput, setNuevaCatInput, setMostrarNuevaCat)}
+                      autoFocus
+                      maxLength={20}
+                    />
+                    <button type="button" onClick={() => handleAgregarCategoria(tipoMovimiento, nuevaCatInput, setNuevaCatInput, setMostrarNuevaCat)} className="text-xs px-3 py-1.5 rounded-xl bg-primary text-primary-foreground">Guardar</button>
+                    <button type="button" onClick={() => { setMostrarNuevaCat(false); setNuevaCatInput("") }} className="text-xs px-3 py-1.5 rounded-xl border border-border">Cancelar</button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setMostrarNuevaCat(true)} className="px-3 py-1.5 rounded-xl text-xs font-medium border border-dashed border-border text-muted-foreground hover:border-primary/50 transition-colors">
+                    + Nueva
+                  </button>
+                )}
               </div>
               {categoria === "Otra" && (
                 <Input
@@ -1465,7 +1531,7 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
             <div className="space-y-2">
               <Label className="text-sm text-muted-foreground">Categoría <span className="text-xs">(opcional)</span></Label>
               <div className="flex flex-wrap gap-2">
-                {(editando?.tipo === "ingreso" ? CATEGORIAS_INGRESO : CATEGORIAS_GASTO).map(cat => (
+                {(editando?.tipo === "ingreso" ? categoriasIngreso : categoriasGasto).map(cat => (
                   <button
                     key={cat}
                     type="button"
@@ -1479,6 +1545,25 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
                     {cat}
                   </button>
                 ))}
+                {mostrarNuevaCatEdit ? (
+                  <div className="flex gap-2 items-center w-full mt-1">
+                    <input
+                      className="h-8 px-2 text-xs rounded-xl border border-border bg-input flex-1"
+                      placeholder="Nombre de categoría..."
+                      value={nuevaCatInputEdit}
+                      onChange={e => setNuevaCatInputEdit(e.target.value)}
+                      onKeyDown={e => e.key === "Enter" && handleAgregarCategoria(editando?.tipo ?? "ingreso", nuevaCatInputEdit, setNuevaCatInputEdit, setMostrarNuevaCatEdit)}
+                      autoFocus
+                      maxLength={20}
+                    />
+                    <button type="button" onClick={() => handleAgregarCategoria(editando?.tipo ?? "ingreso", nuevaCatInputEdit, setNuevaCatInputEdit, setMostrarNuevaCatEdit)} className="text-xs px-3 py-1.5 rounded-xl bg-primary text-primary-foreground">Guardar</button>
+                    <button type="button" onClick={() => { setMostrarNuevaCatEdit(false); setNuevaCatInputEdit("") }} className="text-xs px-3 py-1.5 rounded-xl border border-border">Cancelar</button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setMostrarNuevaCatEdit(true)} className="px-3 py-1.5 rounded-xl text-xs font-medium border border-dashed border-border text-muted-foreground hover:border-primary/50 transition-colors">
+                    + Nueva
+                  </button>
+                )}
               </div>
               {editCategoria === "Otra" && (
                 <Input
@@ -1667,7 +1752,7 @@ export default function DashboardClient({ perfil, movimientosIniciales }: Props)
               </div>
               {/* Categorías */}
               <div className="flex flex-wrap gap-1.5">
-                {CATEGORIAS_INGRESO.map(cat => (
+                {categoriasIngreso.map(cat => (
                   <button key={cat} type="button" onClick={() => setCarritoCategoria(carritoCategoria === cat ? "" : cat)}
                     className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors ${carritoCategoria === cat ? "bg-primary text-primary-foreground border-primary" : "bg-secondary text-muted-foreground border-border"}`}>
                     {cat}

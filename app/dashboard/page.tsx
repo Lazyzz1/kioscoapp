@@ -17,13 +17,14 @@ export default async function DashboardPage() {
 
   const [{ data: perfil }, { data: movimientos }] = await Promise.all([
     supabase.from('perfiles').select('*').eq('id', user.id).single(),
-    supabase
+    supabase      
       .from('movimientos')
       .select('*')
       .eq('user_id', user.id)
       .gte('fecha', desde)
       .order('fecha', { ascending: false }),
   ])
+  
 
   if (!perfil) redirect('/login')
 
@@ -34,11 +35,16 @@ export default async function DashboardPage() {
   const tieneAcceso = trialVigente || esPago
 
   if (!tieneAcceso) redirect('/pagar')
-
+  const { data: categoriasCustom } = await supabase
+  .from("categorias_custom")
+  .select("*")
+  .order("created_at", { ascending: true })
+  
   return (
     <DashboardClient
       perfil={perfil as Perfil}
       movimientosIniciales={(movimientos ?? []) as Movimiento[]}
+      categoriasCustomIniciales={categoriasCustom ?? []}
     />
   )
 }

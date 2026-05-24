@@ -25,6 +25,14 @@ export interface Movimiento {
   created_at: string
 }
 
+export interface CategoriaCustom {
+  id: string
+  user_id: string
+  nombre: string
+  tipo: "ingreso" | "gasto"
+  created_at: string
+}
+
 export function planVigente(perfil: Perfil): boolean {
   if (perfil.plan === "active") return true
   if (perfil.plan === "trial") {
