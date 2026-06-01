@@ -642,31 +642,63 @@ export default function DashboardClient({ perfil, movimientosIniciales, categori
     }
   }
 
-  const handleVerificarPin = async () => {
-    const pin = pinInput.join("")
-    if (pin.length < 4) return
-    setVerificandoPin(true)
-    setPinError("")
-    const res = await fetch("/api/pin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accion: "verificar", pin }),
-    })
-    const data = await res.json()
-    if (res.status === 404) {
-      setPinError("No hay PIN configurado. Configuralo primero.")
-    } else if (!data.valido) {
-      setPinError("PIN incorrecto")
+const PIN_STORAGE_KEY = `pin_intentos_${perfil.id}`
+const PIN_BLOQUEO_MINUTOS = 30
+
+const handleVerificarPin = async () => {
+  const pin = pinInput.join("")
+  if (pin.length < 4) return
+
+  // ─── Verificar bloqueo ───────────────────────────────
+  const stored = localStorage.getItem(PIN_STORAGE_KEY)
+  if (stored) {
+    const { bloqueadoHasta } = JSON.parse(stored)
+    if (bloqueadoHasta && new Date() < new Date(bloqueadoHasta)) {
+      const minutosRestantes = Math.ceil((new Date(bloqueadoHasta).getTime() - Date.now()) / 60000)
+      setPinError(`Demasiados intentos. Intentá en ${minutosRestantes} min.`)
       setPinInput(["", "", "", ""])
-      document.getElementById("pin-0")?.focus()
-    } else {
-      setModoDueno(true)
-      setPinModalOpen(false)
-      setPinInput(["", "", "", ""])
-      setPinError("")
+      return
     }
-    setVerificandoPin(false)
   }
+
+  setVerificandoPin(true)
+  setPinError("")
+  const res = await fetch("/api/pin", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ accion: "verificar", pin }),
+  })
+  const data = await res.json()
+
+  if (res.status === 404) {
+    setPinError("No hay PIN configurado. Configuralo primero.")
+  } else if (!data.valido) {
+    // ─── Sumar intento fallido ───────────────────────────
+    const stored = localStorage.getItem(PIN_STORAGE_KEY)
+    const actual = stored ? JSON.parse(stored) : { intentos: 0, bloqueadoHasta: null }
+    const nuevosIntentos = actual.intentos + 1
+    const bloqueadoHasta = nuevosIntentos >= 5
+      ? new Date(Date.now() + PIN_BLOQUEO_MINUTOS * 60 * 1000).toISOString()
+      : null
+    localStorage.setItem(PIN_STORAGE_KEY, JSON.stringify({ intentos: nuevosIntentos, bloqueadoHasta }))
+
+    if (bloqueadoHasta) {
+      setPinError(`Demasiados intentos. Bloqueado por ${PIN_BLOQUEO_MINUTOS} minutos.`)
+    } else {
+      setPinError(`PIN incorrecto. Intentos restantes: ${5 - nuevosIntentos}`)
+    }
+    setPinInput(["", "", "", ""])
+    document.getElementById("pin-0")?.focus()
+  } else {
+    // ─── PIN correcto → limpiar intentos ────────────────
+    localStorage.removeItem(PIN_STORAGE_KEY)
+    setModoDueno(true)
+    setPinModalOpen(false)
+    setPinInput(["", "", "", ""])
+    setPinError("")
+  }
+  setVerificandoPin(false)
+}
 
   const handleGuardarPin = async () => {
     const pin = pinNuevo.join("")
