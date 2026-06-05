@@ -4,7 +4,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function enviarEmailBienvenida(email: string, nombreNegocio: string) {
   await resend.emails.send({
-    from: "KioskoApp <kioscoapp404@resend.dev>",
+    from: "KioskoApp <hola@kioscoapp.com.ar>",
     to: email,
     subject: "¡Bienvenido a KioskoApp!",
     html: `
@@ -39,7 +39,7 @@ export async function enviarEmailPagoConfirmado(email: string, nombreNegocio: st
     .toLocaleDateString("es-AR", { day: "numeric", month: "long", year: "numeric" });
 
   await resend.emails.send({
-    from: "KioskoApp <kioscoapp404@resend.dev>",
+    from: "KioskoApp <hola@kioscoapp.com.ar>",
     to: email,
     subject: "✅ Pago confirmado — KioskoApp",
     html: `
@@ -67,7 +67,7 @@ export async function enviarEmailPagoConfirmado(email: string, nombreNegocio: st
 
 export async function enviarEmailTrialPorVencer(email: string, nombreNegocio: string, diasRestantes: number) {
   await resend.emails.send({
-    from: "KioskoApp <kioscoapp404@resend.dev>",
+    from: "KioskoApp <hola@kioscoapp.com.ar>",
     to: email,
     subject: `⏳ Tu prueba gratis vence en ${diasRestantes} días`,
     html: `
