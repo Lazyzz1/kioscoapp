@@ -17,6 +17,7 @@ import { Progress } from "@/components/ui/progress"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { createClient } from "@/lib/supabase"
 import { Perfil, Movimiento, diasRestantesTrial } from "@/types"
+import { exportarResumenExcel } from '@/lib/exportExcel'
 
 const LINK_DONACION = "https://link.mercadopago.com.ar/turnosbots"
 
@@ -1095,24 +1096,40 @@ const handleVerificarPin = async () => {
             </button>
           </div>
 
-          <div className="flex items-center justify-between mb-3">
+         <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-semibold text-foreground">Movimientos del mes</h2>
             {resumen.count > 0 && (
-              <button
-                onClick={() => {
-                  import("@/lib/exportPDF").then(({ exportarResumenPDF }) => {
-                    exportarResumenPDF(movimientos, perfil.nombre_negocio, mesFiltro.getMonth(), mesFiltro.getFullYear())
-                  })
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-border text-muted-foreground hover:text-foreground rounded-xl text-xs font-medium transition-colors"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-                </svg>
-                Exportar PDF
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    import("@/lib/exportPDF").then(({ exportarResumenPDF }) => {
+                      exportarResumenPDF(movimientos, perfil.nombre_negocio, mesFiltro.getMonth(), mesFiltro.getFullYear())
+                    })
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-border text-muted-foreground hover:text-foreground rounded-xl text-xs font-medium transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                  </svg>
+                  Exportar PDF
+                </button>
+
+                <button
+                  onClick={() => {
+                    import("@/lib/exportExcel").then(({ exportarResumenExcel }) => {
+                      exportarResumenExcel(movimientos, perfil.nombre_negocio, mesFiltro.getMonth(), mesFiltro.getFullYear())
+                    })
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary hover:bg-border text-muted-foreground hover:text-foreground rounded-xl text-xs font-medium transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M3 14h18M10 3v18M6 3h12a1 1 0 011 1v16a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z"/>
+                  </svg>
+                  Exportar Excel
+                </button>
+              </div>
             )}
-          </div>
+</div>
 
           {(() => {
             const delMesFiltrado = movimientos.filter(m => {
