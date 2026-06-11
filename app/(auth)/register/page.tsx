@@ -64,7 +64,7 @@ export default function RegisterPage() {
             className="w-20 h-20 mx-auto mb-3 rounded-2xl object-contain"
           />
           <h1 className="text-2xl font-semibold text-white">Crear cuenta</h1>
-          <p className="text-sm text-gray-400 mt-1">7 días gratis, sin tarjeta</p>
+          <p className="text-sm text-gray-400 mt-1">1 mes gratis, sin tarjeta</p>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-gray-900 border border-gray-800 rounded-2xl p-6 flex flex-col gap-4">

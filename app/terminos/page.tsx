@@ -9,7 +9,7 @@ export default function TerminosPage() {
         </div>
 
         <h1 className="text-2xl font-bold text-white mb-2">Términos y Condiciones</h1>
-        <p className="text-gray-500 text-sm mb-8">Última actualización: abril 2025</p>
+        <p className="text-gray-500 text-sm mb-8">Última actualización: junio 2026</p>
 
         <div className="space-y-6 text-gray-300 text-sm leading-relaxed">
 
@@ -25,7 +25,7 @@ export default function TerminosPage() {
 
           <section>
             <h2 className="text-white font-semibold text-base mb-2">3. Período de prueba</h2>
-            <p>Los nuevos usuarios tienen acceso gratuito por 7 días desde el momento del registro. Al finalizar el período de prueba, se requiere una suscripción paga para continuar usando el servicio.</p>
+            <p>Los nuevos usuarios tienen acceso gratuito por 1 mes desde el momento del registro. Al finalizar el período de prueba, se requiere una suscripción paga para continuar usando el servicio.</p>
           </section>
 
           <section>

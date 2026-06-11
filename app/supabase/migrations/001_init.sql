@@ -14,7 +14,7 @@ create table public.perfiles (
   -- Suscripción
   plan                 text not null default 'trial',
   -- 'trial' | 'active' | 'expired' | 'cancelled'
-  trial_ends_at        timestamptz not null default (now() + interval '7 days'),
+  trial_ends_at  timestamptz not null default (now() + interval '30 days'),
   plan_activated_at    timestamptz,
   plan_expires_at      timestamptz,
 

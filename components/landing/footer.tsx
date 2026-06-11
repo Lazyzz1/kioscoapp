@@ -10,7 +10,7 @@ export function Footer() {
           <span className="text-sm font-semibold">
             Kiosko<span className="text-primary">App</span>
           </span>
-          <span className="ml-2 text-sm text-muted-foreground">© 2025 KioskoApp</span>
+          <span className="ml-2 text-sm text-muted-foreground">© 2026 KioskoApp</span>
         </div>
         <nav className="flex items-center gap-5 text-sm text-muted-foreground">
           <Link href="/terminos" className="transition-colors hover:text-foreground">

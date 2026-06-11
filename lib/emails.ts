@@ -11,7 +11,7 @@ export async function enviarEmailBienvenida(email: string, nombreNegocio: string
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0f0f0f; color: #ffffff; padding: 40px; border-radius: 12px;">
         <h1 style="color: #f97316; font-size: 28px; margin-bottom: 8px;">¡Bienvenido a KioskoApp!</h1>
         <p style="color: #aaaaaa; font-size: 16px;">Hola, <strong style="color: #ffffff;">${nombreNegocio}</strong> 👋</p>
-        <p style="color: #cccccc; line-height: 1.6;">Tu cuenta está lista. Tenés <strong style="color: #f97316;">7 días gratis</strong> para probar todas las funciones.</p>
+        <p style="color: #cccccc; line-height: 1.6;">Tu cuenta está lista. Tenés <strong style="color: #f97316;">1 mes gratis</strong> para probar todas las funciones.</p>
         
         <div style="background: #1a1a1a; border-radius: 8px; padding: 24px; margin: 24px 0;">
           <p style="margin: 0 0 12px; color: #aaaaaa; font-size: 14px;">Con KioskoApp podés:</p>
