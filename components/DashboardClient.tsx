@@ -2061,35 +2061,47 @@ const handleVerificarPin = async () => {
                 Escribilo igual que cuando registrás la venta para que el descuento sea automático.
               </p>
             </div>
-            <div className="space-y-2">
+          <div className="space-y-2">
               <Label className="text-sm text-muted-foreground">Cantidad actual</Label>
-              <div className="flex items-center justify-center gap-4">
-                <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl border-border"
+              <div className="flex items-center justify-center gap-3">
+                <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl border-border shrink-0"
                   onClick={() => setStockCantidad(c => Math.max(0, c - 1))}>
                   <Minus className="h-5 w-5" />
                 </Button>
-                <span className="text-3xl font-bold text-foreground w-16 text-center">{stockCantidad}</span>
-                <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl border-border"
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  value={stockCantidad}
+                  onChange={e => setStockCantidad(Math.max(0, parseInt(e.target.value) || 0))}
+                  className="h-12 text-center text-2xl font-bold bg-input border-border w-24"
+                />
+                <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl border-border shrink-0"
                   onClick={() => setStockCantidad(c => c + 1)}>
                   <Plus className="h-5 w-5" />
                 </Button>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label className="text-sm text-muted-foreground">Avísame cuando queden menos de...</Label>
-              <div className="flex items-center justify-center gap-4">
-                <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl border-border"
-                  onClick={() => setStockMinimo(m => Math.max(1, m - 1))}>
-                  <Minus className="h-5 w-5" />
-                </Button>
-                <span className="text-3xl font-bold text-foreground w-16 text-center">{stockMinimo}</span>
-                <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl border-border"
-                  onClick={() => setStockMinimo(m => m + 1)}>
-                  <Plus className="h-5 w-5" />
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground text-center">unidades</p>
+           <div className="space-y-2">
+            <Label className="text-sm text-muted-foreground">Avísame cuando queden menos de...</Label>
+            <div className="flex items-center justify-center gap-3">
+              <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl border-border shrink-0"
+                onClick={() => setStockMinimo(m => Math.max(1, m - 1))}>
+                <Minus className="h-5 w-5" />
+              </Button>
+              <Input
+                type="number"
+                inputMode="numeric"
+                value={stockMinimo}
+                onChange={e => setStockMinimo(Math.max(1, parseInt(e.target.value) || 1))}
+                className="h-12 text-center text-2xl font-bold bg-input border-border w-24"
+              />
+              <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl border-border shrink-0"
+                onClick={() => setStockMinimo(m => m + 1)}>
+                <Plus className="h-5 w-5" />
+              </Button>
             </div>
+            <p className="text-xs text-muted-foreground text-center">unidades</p>
+          </div>
             {stockError && (
               <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{stockError}</p>
             )}
