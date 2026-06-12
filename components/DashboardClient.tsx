@@ -1596,13 +1596,13 @@ const handleVerificarPin = async () => {
               <Label className="text-sm text-muted-foreground">Producto o descripción</Label>
               <Input placeholder="Ej: Coca Cola 500ml" value={descripcion} onChange={e => setDescripcion(e.target.value)} className="h-12 bg-input border-border text-base" />
               {tipoMovimiento === "ingreso" && stock.length > 0 && (
-                <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto pr-1">
                   {stock.map(p => (
                     <button
                       key={p.id}
                       type="button"
                       onClick={() => setDescripcion(p.nombre)}
-                      className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium border border-dashed border-border text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors capitalize whitespace-nowrap"
+                      className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium border border-dashed border-border text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors capitalize"
                     >
                       {p.nombre}
                     </button>
@@ -1974,13 +1974,13 @@ const handleVerificarPin = async () => {
                 className="h-11 bg-input border-border text-sm"
               />
               {stock.length > 0 && (
-                <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                <div className="flex flex-wrap gap-2 max-h-24 overflow-y-auto pr-1">
                   {stock.map(p => (
                     <button
                       key={p.id}
                       type="button"
                       onClick={() => setCarritoDesc(p.nombre)}
-                      className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium border border-dashed border-border text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors capitalize whitespace-nowrap"
+                      className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium border border-dashed border-border text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors capitalize"
                     >
                       {p.nombre}
                     </button>
