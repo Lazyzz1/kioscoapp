@@ -79,12 +79,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // ─── Descuento automático de stock ───────────────────────
-  // Solo si es un ingreso (venta) y tiene descripción
+// ─── Descuento automático de stock ───────────────────────
+  let stockActualizado = null
   if (tipo === "ingreso" && descripcion?.trim()) {
     const nombreNormalizado = descripcion.trim().toLowerCase()
 
-    // Buscar si existe un producto trackeado con ese nombre (case-insensitive)
     const { data: productoStock } = await admin
       .from("stock")
       .select("id, cantidad")
@@ -94,12 +93,16 @@ export async function POST(req: NextRequest) {
 
     if (productoStock) {
       const nuevaCantidad = Math.max(0, productoStock.cantidad - (cantidad ?? 1))
-      await admin
+      const { data: actualizado } = await admin
         .from("stock")
         .update({ cantidad: nuevaCantidad })
         .eq("id", productoStock.id)
+        .select()
+        .single()
+
+      stockActualizado = actualizado
     }
   }
 
-  return NextResponse.json({ movimiento: data })
+  return NextResponse.json({ movimiento: data, stockActualizado })
 }

@@ -266,35 +266,43 @@ export default function DashboardClient({ perfil, movimientosIniciales, categori
     setCarritoCategoria("")
   }
 
-  async function cobrarCarrito() {
-    if (carritoItems.length === 0) return
-    setSavingCarrito(true)
-    try {
-      const resultados = await Promise.all(
-        carritoItems.map(item =>
-          fetch("/api/movimientos", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              tipo: "ingreso",
-              descripcion: item.descripcion,
-              precio_unitario: item.precio,
-              cantidad: item.cantidad,
-              monto: item.precio * item.cantidad,
-              es_promo: false,
-              categoria: item.categoria || null,
-            }),
-          }).then(r => r.json())
-        )
+ async function cobrarCarrito() {
+  if (carritoItems.length === 0) return
+  setSavingCarrito(true)
+  try {
+    const resultados = await Promise.all(
+      carritoItems.map(item =>
+        fetch("/api/movimientos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tipo: "ingreso",
+            descripcion: item.descripcion,
+            precio_unitario: item.precio,
+            cantidad: item.cantidad,
+            monto: item.precio * item.cantidad,
+            es_promo: false,
+            categoria: item.categoria || null,
+          }),
+        }).then(r => r.json())
       )
-      const nuevos = resultados.map(r => r.movimiento).filter(Boolean)
-      setMovimientos(prev => [...nuevos, ...prev])
-      setCarritoItems([])
-      setCarritoOpen(false)
-    } finally {
-      setSavingCarrito(false)
-    }
+    )
+    const nuevos = resultados.map(r => r.movimiento).filter(Boolean)
+    setMovimientos(prev => [...nuevos, ...prev])
+
+    // Actualizar stock con todos los productos que cambiaron
+    resultados.forEach(r => {
+      if (r.stockActualizado) {
+        setStock(prev => prev.map(p => p.id === r.stockActualizado.id ? r.stockActualizado : p))
+      }
+    })
+
+    setCarritoItems([])
+    setCarritoOpen(false)
+  } finally {
+    setSavingCarrito(false)
   }
+}
 
   const hoy = new Date()
   const meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]
@@ -579,8 +587,11 @@ export default function DashboardClient({ perfil, movimientosIniciales, categori
       }),
     })
     if (res.ok) {
-      const { movimiento } = await res.json()
+      const { movimiento, stockActualizado } = await res.json()
       setMovimientos(prev => [movimiento, ...prev])
+      if (stockActualizado) {
+        setStock(prev => prev.map(p => p.id === stockActualizado.id ? stockActualizado : p))
+}
       setModalOpen(false)
     }
     setSaving(false)
