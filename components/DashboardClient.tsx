@@ -2071,9 +2071,10 @@ const handleVerificarPin = async () => {
                 <Input
                   type="number"
                   inputMode="numeric"
-                  value={stockCantidad}
-                  onChange={e => setStockCantidad(Math.max(0, parseInt(e.target.value) || 0))}
-                  className="h-12 text-center text-2xl font-bold bg-input border-border w-24"
+                  value={stockCantidad === 0 ? "" : stockCantidad}
+                  onChange={e => setStockCantidad(e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0))}
+                  placeholder="0"
+                  className="h-12 text-center text-2xl font-bold bg-input border-border w-24 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [appearance:textfield]"
                 />
                 <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl border-border shrink-0"
                   onClick={() => setStockCantidad(c => c + 1)}>
@@ -2091,9 +2092,10 @@ const handleVerificarPin = async () => {
               <Input
                 type="number"
                 inputMode="numeric"
-                value={stockMinimo}
-                onChange={e => setStockMinimo(Math.max(1, parseInt(e.target.value) || 1))}
-                className="h-12 text-center text-2xl font-bold bg-input border-border w-24"
+                value={stockMinimo === 0 ? "" : stockMinimo}
+                onChange={e => setStockMinimo(e.target.value === "" ? 0 : Math.max(0, parseInt(e.target.value) || 0))}
+                placeholder="0"
+                className="h-12 text-center text-2xl font-bold bg-input border-border w-24 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [appearance:textfield]"
               />
               <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl border-border shrink-0"
                 onClick={() => setStockMinimo(m => m + 1)}>
