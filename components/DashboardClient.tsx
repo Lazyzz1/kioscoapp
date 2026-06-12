@@ -1592,9 +1592,23 @@ const handleVerificarPin = async () => {
           </DialogHeader>
 
           <div className="space-y-5 pt-2">
-            <div className="space-y-2">
+           <div className="space-y-2">
               <Label className="text-sm text-muted-foreground">Producto o descripción</Label>
               <Input placeholder="Ej: Coca Cola 500ml" value={descripcion} onChange={e => setDescripcion(e.target.value)} className="h-12 bg-input border-border text-base" />
+              {tipoMovimiento === "ingreso" && stock.length > 0 && (
+                <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                  {stock.map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setDescripcion(p.nombre)}
+                      className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium border border-dashed border-border text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors capitalize whitespace-nowrap"
+                    >
+                      {p.nombre}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label className="text-sm text-muted-foreground">Precio unitario</Label>
@@ -1959,6 +1973,20 @@ const handleVerificarPin = async () => {
                 onKeyDown={e => e.key === "Enter" && agregarAlCarrito()}
                 className="h-11 bg-input border-border text-sm"
               />
+              {stock.length > 0 && (
+                <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                  {stock.map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setCarritoDesc(p.nombre)}
+                      className="shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium border border-dashed border-border text-muted-foreground hover:border-primary/50 hover:text-foreground transition-colors capitalize whitespace-nowrap"
+                    >
+                      {p.nombre}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
