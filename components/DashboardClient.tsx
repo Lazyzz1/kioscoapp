@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useRef } from "react"
+import { useState, useMemo, useRef, useEffect } from "react"
 import React from "react"
 import { useRouter } from "next/navigation"
 import {
@@ -151,6 +151,90 @@ export default function DashboardClient({ perfil, movimientosIniciales, categori
   // ─── Cancelar suscripción ─────────────────────────────
   const [cancelModalOpen, setCancelModalOpen] = useState(false)
   const [cancelando, setCancelando] = useState(false)
+  // ─── Stock ───────────────────────────────────────────────
+  interface ProductoStock { id: string; nombre: string; cantidad: number; minimo: number }
+  const [stock, setStock] = useState<ProductoStock[]>([])
+  const [stockCargado, setStockCargado] = useState(false)
+  const [stockModalOpen, setStockModalOpen] = useState(false)
+  const [stockNombre, setStockNombre] = useState("")
+  const [stockCantidad, setStockCantidad] = useState(0)
+  const [stockMinimo, setStockMinimo] = useState(5)
+  const [stockEditando, setStockEditando] = useState<ProductoStock | null>(null)
+  const [stockDeleteId, setStockDeleteId] = useState<string | null>(null)
+  const [savingStock, setSavingStock] = useState(false)
+  const [stockError, setStockError] = useState("")
+
+
+  async function cargarStock() {
+    if (stockCargado) return
+    const res = await fetch("/api/stock")
+    if (res.ok) {
+      const { stock: data } = await res.json()
+      setStock(data)
+      setStockCargado(true)
+    }
+  }
+
+  function abrirStockModal(producto?: ProductoStock) {
+    setStockError("")
+    if (producto) {
+      setStockEditando(producto)
+      setStockNombre(producto.nombre)
+      setStockCantidad(producto.cantidad)
+      setStockMinimo(producto.minimo)
+    } else {
+      setStockEditando(null)
+      setStockNombre("")
+      setStockCantidad(0)
+      setStockMinimo(5)
+    }
+    setStockModalOpen(true)
+  }
+
+  async function guardarStock() {
+    if (!stockNombre.trim()) return
+    setSavingStock(true)
+    setStockError("")
+    if (stockEditando) {
+      const res = await fetch(`/api/stock/${stockEditando.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre: stockNombre, cantidad: stockCantidad, minimo: stockMinimo }),
+      })
+      if (res.ok) {
+        const { producto } = await res.json()
+        setStock(prev => prev.map(p => p.id === producto.id ? producto : p))
+        setStockModalOpen(false)
+      } else {
+        const { error } = await res.json()
+        setStockError(error ?? "Error al guardar")
+      }
+    } else {
+      const res = await fetch("/api/stock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre: stockNombre, cantidad: stockCantidad, minimo: stockMinimo }),
+      })
+      if (res.ok) {
+        const { producto } = await res.json()
+        setStock(prev => [...prev, producto].sort((a, b) => a.nombre.localeCompare(b.nombre)))
+        setStockModalOpen(false)
+      } else {
+        const { error } = await res.json()
+        setStockError(error ?? "Error al guardar")
+      }
+    }
+    setSavingStock(false)
+  }
+
+  async function eliminarStock(id: string) {
+    await fetch(`/api/stock/${id}`, { method: "DELETE" })
+    setStock(prev => prev.filter(p => p.id !== id))
+    setStockDeleteId(null)
+  }
+  useEffect(() => {
+  cargarStock()
+}, [])
   const [cancelError, setCancelError] = useState('')
 
   // ─── Carrito (venta múltiple) ─────────────────────────
@@ -1263,6 +1347,94 @@ const handleVerificarPin = async () => {
             </div>
           )}
         </Card>
+        
+        {/* Stock */}
+        <Card className="p-4 bg-card border-border">
+          <div
+            className="flex items-center justify-between mb-1 cursor-pointer"
+            onClick={() => { cargarStock() }}
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-base">📦</span>
+              <h2 className="text-base font-semibold text-foreground">Mi stock</h2>
+            </div>
+            <button
+              onClick={e => { e.stopPropagation(); cargarStock(); abrirStockModal() }}
+              className="flex items-center gap-1 px-3 py-1.5 bg-primary text-primary-foreground rounded-xl text-xs font-medium hover:opacity-90 transition-opacity"
+            >
+              <Plus className="h-3.5 w-3.5" /> Agregar
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">Solo los productos que querés trackear</p>
+
+          {!stockCargado ? (
+            <button
+              onClick={cargarStock}
+              className="w-full py-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Tocar para cargar stock
+            </button>
+          ) : stock.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-3">
+              Todavía no agregaste productos. Tocá "+ Agregar".
+            </p>
+          ) : (
+            <div className="overflow-y-auto max-h-64 space-y-1 pr-1">
+              {stock.map(p => {
+                const bajo = p.cantidad <= p.minimo
+                const agotado = p.cantidad === 0
+                return (
+                  <div key={p.id} className="flex items-center justify-between py-2 border-b border-border last:border-0 group">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${agotado ? "bg-destructive" : bajo ? "bg-warning" : "bg-success"}`} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-foreground capitalize truncate">{p.nombre}</p>
+                        <p className="text-xs text-muted-foreground">mín. {p.minimo} ud.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 ml-2 shrink-0">
+                      <span className={`text-sm font-semibold ${agotado ? "text-destructive" : bajo ? "text-warning" : "text-success"}`}>
+                        {p.cantidad} ud.
+                      </span>
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => abrirStockModal(p)}
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                          title="Editar"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setStockDeleteId(p.id)}
+                          className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Alertas de stock bajo */}
+          {stockCargado && stock.some(p => p.cantidad <= p.minimo) && (
+            <div className="mt-3 space-y-1.5">
+              {stock.filter(p => p.cantidad <= p.minimo).map(p => (
+                <div key={p.id} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-warning/10 border border-warning/20">
+                  <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
+                  <p className="text-xs text-warning">
+                    {p.cantidad === 0
+                      ? `"${p.nombre}" está agotado`
+                      : `"${p.nombre}" queda poco stock (${p.cantidad} ud.)`}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>    
 
         {/* Categorías */}
         {porCategoria.length > 0 && (() => {
@@ -1852,6 +2024,102 @@ const handleVerificarPin = async () => {
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* ─── Modal STOCK ──────────────────────────────────────── */}
+      <Dialog open={stockModalOpen} onOpenChange={v => { setStockModalOpen(v); setStockError("") }}>
+        <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-sm rounded-2xl bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-foreground">
+              {stockEditando ? "Editar producto" : "Agregar al stock"}
+            </DialogTitle>
+            <button onClick={() => setStockModalOpen(false)} className="absolute right-4 top-4 text-muted-foreground hover:text-foreground">
+              <X className="h-5 w-5" />
+            </button>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label className="text-sm text-muted-foreground">Nombre del producto</Label>
+              <Input
+                placeholder="Ej: Coca Cola 1.5L"
+                value={stockNombre}
+                onChange={e => setStockNombre(e.target.value)}
+                className="h-12 bg-input border-border text-base"
+                maxLength={60}
+              />
+              <p className="text-xs text-muted-foreground">
+                Escribilo igual que cuando registrás la venta para que el descuento sea automático.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm text-muted-foreground">Cantidad actual</Label>
+              <div className="flex items-center justify-center gap-4">
+                <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl border-border"
+                  onClick={() => setStockCantidad(c => Math.max(0, c - 1))}>
+                  <Minus className="h-5 w-5" />
+                </Button>
+                <span className="text-3xl font-bold text-foreground w-16 text-center">{stockCantidad}</span>
+                <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl border-border"
+                  onClick={() => setStockCantidad(c => c + 1)}>
+                  <Plus className="h-5 w-5" />
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm text-muted-foreground">Avísame cuando queden menos de...</Label>
+              <div className="flex items-center justify-center gap-4">
+                <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl border-border"
+                  onClick={() => setStockMinimo(m => Math.max(1, m - 1))}>
+                  <Minus className="h-5 w-5" />
+                </Button>
+                <span className="text-3xl font-bold text-foreground w-16 text-center">{stockMinimo}</span>
+                <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl border-border"
+                  onClick={() => setStockMinimo(m => m + 1)}>
+                  <Plus className="h-5 w-5" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground text-center">unidades</p>
+            </div>
+            {stockError && (
+              <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-lg">{stockError}</p>
+            )}
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <Button variant="outline" onClick={() => setStockModalOpen(false)} className="h-12 border-border">
+                Cancelar
+              </Button>
+              <Button onClick={guardarStock} disabled={savingStock || !stockNombre.trim()} className="h-12">
+                {savingStock ? "Guardando..." : stockEditando ? "Guardar cambios" : "Agregar"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
+      {/* ─── Modal CONFIRMAR ELIMINAR STOCK ───────────────────── */}
+      <Dialog open={!!stockDeleteId} onOpenChange={v => { if (!v) setStockDeleteId(null) }}>
+        <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-sm rounded-2xl bg-card border-border">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-foreground">Eliminar producto</DialogTitle>
+            <button onClick={() => setStockDeleteId(null)} className="absolute right-4 top-4 text-muted-foreground hover:text-foreground">
+              <X className="h-5 w-5" />
+            </button>
+          </DialogHeader>
+          <div className="pt-2 space-y-5">
+            <p className="text-sm text-muted-foreground">
+              ¿Seguro que querés dejar de trackear este producto? El historial de ventas no se borra.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <Button variant="outline" onClick={() => setStockDeleteId(null)} className="h-12 border-border">
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => stockDeleteId && eliminarStock(stockDeleteId)}
+                className="h-12 bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              >
+                Eliminar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
   </>) }
 }
