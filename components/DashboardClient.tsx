@@ -246,7 +246,8 @@ export default function DashboardClient({ perfil, movimientosIniciales, categori
   const [carritoCantidad, setCarritoCantidad] = useState(1)
   const [carritoCategoria, setCarritoCategoria] = useState("")
   const [savingCarrito, setSavingCarrito] = useState(false)
-
+  const [ventaRapidaImporte, setVentaRapidaImporte] = useState("")
+  const [savingVentaRapida, setSavingVentaRapida] = useState(false)
   const carritoTotal = carritoItems.reduce((a, i) => a + i.precio * i.cantidad, 0)
 
   function agregarAlCarrito() {
@@ -265,6 +266,30 @@ export default function DashboardClient({ perfil, movimientosIniciales, categori
     setCarritoCantidad(1)
     setCarritoCategoria("")
   }
+
+ async function handleVentaRapida() {
+  const importe = parseFloat(ventaRapidaImporte)
+  if (!importe || importe <= 0) return
+  setSavingVentaRapida(true)
+  const res = await fetch("/api/movimientos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      tipo: "ingreso",
+      descripcion: "Venta rápida",
+      precio_unitario: importe,
+      cantidad: 1,
+      monto: importe,
+      es_promo: false,
+    }),
+  })
+  if (res.ok) {
+    const { movimiento } = await res.json()
+    setMovimientos(prev => [movimiento, ...prev])
+    setVentaRapidaImporte("")
+  }
+  setSavingVentaRapida(false)
+}
 
  async function cobrarCarrito() {
   if (carritoItems.length === 0) return
@@ -911,6 +936,28 @@ const handleVerificarPin = async () => {
             </svg>
             Nueva venta (varios productos)
           </Button>
+          {/* Venta rápida */}
+          <div className="flex gap-2 items-center">
+            <div className="relative flex-1">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">$</span>
+              <Input
+                type="number"
+                inputMode="decimal"
+                placeholder="Importe total"
+                value={ventaRapidaImporte}
+                onChange={e => setVentaRapidaImporte(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && handleVentaRapida()}
+                className="h-12 pl-7 bg-input border-border text-base [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+            </div>
+            <Button
+              onClick={handleVentaRapida}
+              disabled={savingVentaRapida || !ventaRapidaImporte || parseFloat(ventaRapidaImporte) <= 0}
+              className="h-12 px-4 bg-amber-500 hover:bg-amber-600 text-white font-semibold shrink-0 gap-1.5"
+            >
+              ⚡ {savingVentaRapida ? "..." : "Venta rápida"}
+            </Button>
+          </div>
 
           {/* Historial del día — solo descripción y categoría, sin montos */}
           <Card className="p-4 bg-card border-border">
@@ -1167,6 +1214,28 @@ const handleVerificarPin = async () => {
           </svg>
           Nueva venta (varios productos)
         </Button>
+        {/* Venta rápida */}
+        <div className="flex gap-2 items-center">
+          <div className="relative flex-1">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">$</span>
+            <Input
+              type="number"
+              inputMode="decimal"
+              placeholder="Importe total"
+              value={ventaRapidaImporte}
+              onChange={e => setVentaRapidaImporte(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && handleVentaRapida()}
+              className="h-12 pl-7 bg-input border-border text-base [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+          </div>
+          <Button
+            onClick={handleVentaRapida}
+            disabled={savingVentaRapida || !ventaRapidaImporte || parseFloat(ventaRapidaImporte) <= 0}
+            className="h-12 px-4 bg-amber-500 hover:bg-amber-600 text-white font-semibold shrink-0 gap-1.5"
+          >
+            ⚡ {savingVentaRapida ? "..." : "Venta rápida"}
+          </Button>
+        </div>
 
         {/* Historial agrupado del mes + navegación de meses */}
         <Card className="p-4 bg-card border-border">
