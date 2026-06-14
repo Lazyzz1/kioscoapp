@@ -389,6 +389,7 @@ export default function DashboardClient({ perfil, movimientosIniciales, categori
         return (
           m.tipo === "ingreso" &&
           m.descripcion &&
+          (m.descripcion ?? "").toLowerCase().trim() !== "venta rápida" &&
           d.getMonth() === mesFiltro.getMonth() &&
           d.getFullYear() === mesFiltro.getFullYear()
         )
@@ -967,21 +968,43 @@ const handleVerificarPin = async () => {
             ) : (
               <div className="space-y-1">
                 {movimientos
-                  .filter(m => new Date(m.fecha).toDateString() === hoy.toDateString())
+                  .filter(m => 
+                    new Date(m.fecha).toDateString() === hoy.toDateString() &&
+                    m.tipo === "ingreso"
+                  )
                   .map(mov => (
-                    <div key={mov.id} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
-                      <div className={`p-2 rounded-lg shrink-0 ${mov.tipo === "ingreso" ? "bg-success/10" : "bg-destructive/10"}`}>
-                        {mov.tipo === "ingreso"
-                          ? <TrendingUp className="h-4 w-4 text-success" />
-                          : <TrendingDown className="h-4 w-4 text-destructive" />}
+                    <div key={mov.id} className="flex items-center justify-between gap-3 py-2 border-b border-border last:border-0 group">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="p-2 rounded-lg shrink-0 bg-success/10">
+                          <TrendingUp className="h-4 w-4 text-success" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground">{mov.descripcion}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {mov.cantidad > 1 && `${mov.cantidad}x · `}
+                            {fmtFecha(mov.fecha)}
+                            {mov.categoria ? ` · ${mov.categoria}` : ""}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{mov.descripcion}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {mov.cantidad > 1 && `${mov.cantidad}x · `}
-                          {fmtFecha(mov.fecha)}
-                          {mov.categoria ? ` · ${mov.categoria}` : ""}
-                        </p>
+                      <div className="flex items-center gap-2 ml-2 shrink-0">
+                        <p className="text-sm font-semibold text-success">+{formatMoney(mov.monto)}</p>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => handleOpenEdit(mov)}
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                            title="Editar"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleOpenDelete(mov)}
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
