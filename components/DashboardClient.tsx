@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import {
   LogOut, Plus, Minus, AlertTriangle, Clock,
   TrendingUp, TrendingDown, X, Heart, Send, Package,
-  Pencil, Trash2, ArrowUp, ArrowDown, Equal, KeyRound, Lock, Unlock,
+  Pencil, Trash2, ArrowUp, ArrowDown, Equal, KeyRound, Lock, Unlock, ArrowRight,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { createClient } from "@/lib/supabase"
 import { Perfil, Movimiento, diasRestantesTrial } from "@/types"
 import { exportarResumenExcel } from '@/lib/exportExcel'
-
+import Link from "next/link"
 const LINK_DONACION = "https://link.mercadopago.com.ar/turnosbots"
 
 interface CategoriaCustom {
@@ -1612,6 +1612,18 @@ const handleVerificarPin = async () => {
             </Button>
           </div>
         </Card>
+
+        {/* Guía rápida */}
+        <Link href="/ayuda" className="flex items-center justify-between p-4 bg-card border border-border rounded-2xl hover:bg-secondary transition-colors">
+          <div className="flex items-center gap-3">
+            <span className="text-xl">📖</span>
+            <div>
+              <p className="text-sm font-medium text-foreground">Guía rápida</p>
+              <p className="text-xs text-muted-foreground">Aprendé a usar todas las funciones</p>
+            </div>
+          </div>
+          <ArrowRight className="h-4 w-4 text-muted-foreground" />
+        </Link>
 
         {/* Sugerencias */}
         <Card className="p-4 bg-card border-border">
