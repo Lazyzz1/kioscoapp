@@ -281,6 +281,7 @@ export default function DashboardClient({ perfil, movimientosIniciales, categori
       cantidad: 1,
       monto: importe,
       es_promo: false,
+      is_quick_sale: true,
     }),
   })
   if (res.ok) {

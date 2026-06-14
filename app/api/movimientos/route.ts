@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Body inválido" }, { status: 400 })
   }
 
-  const { tipo, descripcion, precio_unitario, cantidad, monto, es_promo, categoria } = body as {
+  const { tipo, descripcion, precio_unitario, cantidad, monto, es_promo, categoria, is_quick_sale } = body as {
     tipo: string
     descripcion?: string
     precio_unitario?: number
@@ -48,8 +48,8 @@ export async function POST(req: NextRequest) {
     monto: number
     es_promo?: boolean
     categoria?: string
-  }
-
+    is_quick_sale?: boolean
+  } 
   const admin = createAdminClient()
 
   const insertData: Record<string, unknown> = {
@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
     monto,
     es_promo: es_promo ?? false,
     fecha: new Date().toISOString(),
+    is_quick_sale: is_quick_sale ?? false,
   }
 
   // Solo incluimos categoria si ya existe la columna (migración corrida)
