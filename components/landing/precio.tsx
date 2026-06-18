@@ -9,6 +9,7 @@ const incluido = [
   "Modo empleado con PIN",
   "Exportación en PDF y Excel",
   "Historial de los últimos 6 meses",
+  "Control de stock"
 ]
 
 export function Precio() {
