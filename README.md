@@ -65,7 +65,7 @@ Agregar todas las variables de entorno en el panel de Vercel.
 ```
 Usuario se registra
     ↓
-7 días de trial automático (sin tarjeta)
+30 días de trial automático (sin tarjeta)
     ↓
 Al vencer → redirige a /pagar
     ↓
@@ -84,7 +84,7 @@ Middleware verifica plan en cada request
 app/
   (auth)/
     login/          → Pantalla de login
-    register/       → Registro con 7 días de trial
+    register/       → Registro con 30 días de trial
   (app)/
     dashboard/      → Dashboard principal (protegido)
   pagar/            → Pantalla de suscripción
