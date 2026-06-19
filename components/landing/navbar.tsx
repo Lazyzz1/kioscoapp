@@ -1,6 +1,5 @@
 import Link from "next/link"
 import Image from "next/image"
-import { Button } from "@/components/ui/button"
 
 export function Navbar() {
   return (
@@ -19,6 +18,12 @@ export function Navbar() {
           </span>
         </Link>
         <div className="flex items-center gap-2 sm:gap-3">
+          <Link
+            href="/blog"
+            className="text-sm px-4 py-2 rounded-md hover:bg-accent transition-colors hidden sm:block"
+          >
+            Blog
+          </Link>
           <Link href="/login" className="text-sm px-4 py-2 rounded-md hover:bg-accent transition-colors">
             Iniciar sesión
           </Link>
