@@ -9,8 +9,8 @@ export function Navbar() {
           <Image
             src="/icon.png"
             alt="Logo de KioskoApp"
-            width={36}
-            height={36}
+            width={70}
+            height={70}
             className="rounded-lg"
           />
           <span className="text-lg font-bold tracking-tight">
