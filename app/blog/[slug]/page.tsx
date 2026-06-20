@@ -136,7 +136,7 @@ export default async function BlogPostPage({ params }: Props) {
       <header className="border-b border-gray-100 dark:border-neutral-800">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <img src="/logo_kioscoapp.png" alt="KioskoApp" width={36} height={36} className="rounded-lg" />
+            <img src="/logo_kioscoapp.png" alt="KioskoApp" width={70} height={70} className="rounded-lg" />
             <span className="font-bold text-gray-900 dark:text-white">KioskoApp</span>
           </Link>
           <Link
