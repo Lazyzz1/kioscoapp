@@ -249,7 +249,7 @@ export default async function BlogPostPage({ params }: Props) {
       {/* Footer */}
       <footer className="border-t border-gray-100 dark:border-neutral-800 mt-16">
         <div className="max-w-3xl mx-auto px-4 py-6 flex items-center justify-between text-sm text-gray-400 dark:text-neutral-500">
-          <span>© 2025 KioskoApp</span>
+          <span>© 2026 KioskoApp</span>
           <div className="flex gap-4">
             <Link href="/" className="hover:text-gray-600 dark:hover:text-neutral-300">Inicio</Link>
             <Link href="/blog" className="hover:text-gray-600 dark:hover:text-neutral-300">Blog</Link>
